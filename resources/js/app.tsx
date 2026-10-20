@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { BASE_PATH } from './lib/base'
 import '../css/app.css'
 import AppRoutes from './AppRoutes'
 import { AuthProvider } from './store/auth'
@@ -13,7 +14,7 @@ import { ToastProvider } from './store/toast'
  */
 createRoot(document.getElementById('app')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={BASE_PATH || undefined}>
       <DataProvider>
         <ToastProvider>
           <AuthProvider>

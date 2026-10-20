@@ -1,3 +1,4 @@
+import { BASE_PATH } from '@/lib/base'
 import type { User } from '@/types'
 import { ApiError, type Api } from './types'
 
@@ -9,7 +10,7 @@ import { ApiError, type Api } from './types'
  * expected in Laravel's default 422 format: { message, errors: { field: [..] } }.
  */
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
+const BASE = import.meta.env.VITE_API_BASE_URL ?? `${BASE_PATH}/api`
 
 function xsrfToken() {
   const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
@@ -47,7 +48,7 @@ export const httpApi: Api = {
   auth: {
     me: () => get<User | null>('/me').catch((e: ApiError) => (e.status === 401 ? null : Promise.reject(e))),
     login: async (username, password) => {
-      await fetch('/sanctum/csrf-cookie', { credentials: 'include' })
+      await fetch(`${BASE_PATH}/sanctum/csrf-cookie`, { credentials: 'include' })
       return post('/login', { username, password })
     },
     logout: () => post('/logout'),

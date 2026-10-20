@@ -11,7 +11,8 @@
     @vite('resources/js/app.tsx')
 </head>
 <body>
-    {{-- React mounts here; React Router handles every page. --}}
-    <div id="app"></div>
+    {{-- React mounts here. data-base tells React Router the URL prefix
+         (e.g. /CashRoute_Admin_Portal/public when served by XAMPP). --}}
+    <div id="app" data-base="{{ request()->getBaseUrl() }}" data-asset="{{ rtrim(asset(''), '/') }}"></div>
 </body>
 </html>

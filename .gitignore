@@ -1,28 +1,28 @@
-# dependencies
-node_modules/
-
-# build output
-dist/
-*.tsbuildinfo
-
-# environment / secrets
-.env
-.env.*
-!.env.example
-*.local
-
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# editor / OS
-.vscode/
-.idea/
+*.log
 .DS_Store
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+Homestead.json
+Homestead.yaml
 Thumbs.db
+/dist
+*.tsbuildinfo
 desktop.ini
-
-# local tool settings
-.claude/
+/.claude
