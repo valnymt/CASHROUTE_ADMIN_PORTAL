@@ -16,26 +16,49 @@ const Reports = lazy(() => import('./pages/reports/Reports'))
 const ReportDetail = lazy(() => import('./pages/reports/ReportDetail'))
 
 /**
- * Client-side routes. Laravel serves resources/views/app.blade.php for every
- * non-API URL (see laravel/routes-web.php) and React Router takes over.
+ * Client-side routes — one per Figma frame. Keep in sync with routes/web.php,
+ * which lists the same URLs on the Laravel side.
  */
 export default function AppRoutes() {
   return (
     <Suspense fallback={<LoadingBlock />}>
       <Routes>
+        {/* AP-01 · Login / Account Locked */}
         <Route path="/login" element={<Login />} />
+
         <Route element={<AppLayout />}>
+          {/* AP-08 · Live Monitoring / Stale GPS Warning */}
           <Route path="/live" element={<LiveMonitoring />} />
+          <Route path="/live/stale-gps" element={<LiveMonitoring />} />
+
+          {/* AP-04/05 · New Cash Request */}
           <Route path="/requests/new" element={<NewRequest />} />
+
+          {/* AP-06 · Approvals, Request Detail, Maker-Checker guard; AP-07 · Reject / Assign */}
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/approvals/:id" element={<RequestDetail />} />
+          <Route path="/approvals/:id/reject" element={<RequestDetail />} />
+          <Route path="/approvals/:id/assign" element={<RequestDetail />} />
+
+          {/* AP-02 · Branch List / Add-Edit Branch */}
           <Route path="/branches" element={<Branches />} />
+          <Route path="/branches/create" element={<Branches />} />
+          <Route path="/branches/:id/edit" element={<Branches />} />
+
+          {/* AP-03 · User Accounts / Add-Edit User / Delivery Teams */}
           <Route path="/users" element={<UsersPage />} />
+          <Route path="/users/create" element={<UsersPage />} />
+          <Route path="/users/:id/edit" element={<UsersPage />} />
           <Route path="/teams" element={<Teams />} />
+
+          {/* AP-09 · Audit Trail */}
           <Route path="/audit" element={<AuditTrail />} />
+
+          {/* AP-10 · Reports / Request Detail (history) */}
           <Route path="/reports" element={<Reports />} />
           <Route path="/reports/:id" element={<ReportDetail />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/live" replace />} />
       </Routes>
     </Suspense>

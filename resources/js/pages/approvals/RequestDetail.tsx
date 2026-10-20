@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconSparkle } from '@/components/icons'
 import { Avatar, Badge, Button, Card, Drawer, ErrorBlock, KeyValue, LoadingBlock, Modal, StatusBadge, Textarea } from '@/components/ui'
 import { cn } from '@/lib/cn'
@@ -25,8 +25,12 @@ export default function RequestDetail() {
   const { data: users } = useApi(() => api.users.list())
   const { data: teams } = useApi(() => api.teams.list())
 
-  const [rejectOpen, setRejectOpen] = useState(false)
-  const [assignOpen, setAssignOpen] = useState(false)
+  const { pathname } = useLocation()
+  // AP-07 overlays are part of the URL: /approvals/{id}/reject and /approvals/{id}/assign.
+  const rejectOpen = pathname.endsWith('/reject')
+  const assignOpen = pathname.endsWith('/assign')
+  const setRejectOpen = (open: boolean) => navigate(open ? `/approvals/${id}/reject` : `/approvals/${id}`)
+  const setAssignOpen = (open: boolean) => navigate(open ? `/approvals/${id}/assign` : `/approvals/${id}`)
   const [busy, setBusy] = useState(false)
 
   if (error)

@@ -3,8 +3,9 @@
 A **Laravel 12** application whose front end is a React 19 + TypeScript + Tailwind CSS v4 single-page
 app, built from the Figma file **CashRoute – HQ Admin Portal v2 (Light Neon Glass)**.
 
-- Laravel serves one Blade view (`resources/views/app.blade.php`) for every page URL.
-- React Router decides which screen to show.
+- `routes/web.php` has one named route per Figma screen, each returning its own Blade view in
+  `resources/views/pages/`.
+- Every view extends `resources/views/layouts/app.blade.php`, where React renders the screen.
 - There's no database or API yet: the screens run on a mock API in the browser, with demo data
   saved in `localStorage`.
 
@@ -94,7 +95,9 @@ public/
   assets/                  Logo and background glow images from Figma
   build/                   Compiled React app (created by `npm run build`, not committed)
 resources/
-  views/app.blade.php      The single Blade page that loads React
+  views/
+    layouts/app.blade.php  Shared page shell that loads React (@vite)
+    pages/                 One Blade view per Figma screen (branches/index, branches/create, …)
   css/app.css              Tailwind + design tokens (colours, glass, shadows from Figma)
   js/
     app.tsx                React entry (loaded by @vite in the Blade view)
@@ -104,23 +107,25 @@ resources/
     components/            Icons, logo, UI kit (buttons, inputs, modal, drawer, data table…)
     services/              api.ts → mockApi.ts (browser demo) or httpApi.ts (real Laravel API)
     store/, lib/, types/   Auth state, data hook, toasts, formatting, demo seed data, types
-routes/web.php             Catch-all route that returns the Blade page
+routes/web.php             One named route per screen (see table below)
 vite.config.js             Vite + laravel-vite-plugin + React + Tailwind
 ```
 
 ## Screens
 
+Sign in first (`admin.maker` / `password`); every other page redirects to `/login` when you're signed out. Demo IDs: requests `REQ-1048` (someone else's) and `REQ-1049` (yours, Maker-Checker guard), branch `BR-001`, user `U-001`, trip `REQ-1042`.
+
 | Screen | URL | What works |
 | --- | --- | --- |
 | Login / Account Locked | `/login` | Validation, show/hide password, 5 failed attempts lock the account |
 | Session Timeout | any page | Warns after 15 minutes idle, with a 30-second countdown |
-| Live Monitoring + Stale GPS | `/live` | Moving team markers, map filters, details on click, "Demo: GPS drop" |
-| Branches + Add/Edit | `/branches` | Search, filter, add/edit with validation, draggable map pin |
-| User Accounts + Add/Edit | `/users` | Search, role filter, add/edit, unlock users |
+| Live Monitoring / Stale GPS | `/live`, `/live/stale-gps` | Moving team markers, map filters, details on click, "Demo: GPS drop" |
+| Branches / Add / Edit | `/branches`, `/branches/create`, `/branches/{id}/edit` | Search, filter, add/edit with validation, draggable map pin |
+| User Accounts / Add / Edit | `/users`, `/users/create`, `/users/{id}/edit` | Search, role filter, add/edit, unlock users |
 | Delivery Teams | `/teams` | Create teams, edit members, drag-and-drop members between teams |
 | New Cash Request | `/requests/new` | Deposit/Withdrawal, live summary, validation, submit |
 | Pending Approvals | `/approvals` | Pending / Approved / Rejected tabs, search |
-| Request Detail, Maker-Checker guard, Reject, Assign team | `/approvals/{id}` | Approve, reject with a required reason, assign an available team |
+| Request Detail, Maker-Checker guard, Reject, Assign team | `/approvals/{id}`, `/approvals/{id}/reject`, `/approvals/{id}/assign` | Approve, reject with a required reason, assign an available team |
 | Audit Trail | `/audit` | Every action is logged; search, filter, event details |
 | Reports + Request history | `/reports`, `/reports/{id}` | Filters, KPIs, charts, pagination, CSV and Excel export |
 

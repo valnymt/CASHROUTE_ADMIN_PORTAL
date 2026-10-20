@@ -9,12 +9,12 @@ import Topbar from './Topbar'
 
 /** Breadcrumb + page title for each route (first match wins). */
 const META: { path: string; crumbs: string[]; title: string }[] = [
-  { path: '/live', crumbs: ['Live Monitoring'], title: 'Live Monitoring' },
+  { path: '/live/*', crumbs: ['Live Monitoring'], title: 'Live Monitoring' },
   { path: '/requests/new', crumbs: ['Operations', 'New Cash Request'], title: 'New Cash Request' },
-  { path: '/approvals/:id', crumbs: ['Operations', 'Approvals', ':id'], title: 'Approvals' },
+  { path: '/approvals/:id/*', crumbs: ['Operations', 'Approvals', ':id'], title: 'Approvals' },
   { path: '/approvals', crumbs: ['Operations', 'Approvals'], title: 'Approvals' },
-  { path: '/branches', crumbs: ['Management', 'Branches'], title: 'Branches' },
-  { path: '/users', crumbs: ['Management', 'Users & Teams'], title: 'Users & Teams' },
+  { path: '/branches/*', crumbs: ['Management', 'Branches'], title: 'Branches' },
+  { path: '/users/*', crumbs: ['Management', 'Users & Teams'], title: 'Users & Teams' },
   { path: '/teams', crumbs: ['Management', 'Users & Teams', 'Teams'], title: 'Users & Teams' },
   { path: '/audit', crumbs: ['Insights', 'Audit Trail'], title: 'Audit Trail' },
   { path: '/reports/:id', crumbs: ['Insights', 'Reports', ':id'], title: 'Reports' },
@@ -46,6 +46,8 @@ export default function AppLayout() {
       break
     }
   }
+
+  document.title = `${title} · CashRoute HQ Admin`
 
   return (
     <IdleTimeoutProvider>

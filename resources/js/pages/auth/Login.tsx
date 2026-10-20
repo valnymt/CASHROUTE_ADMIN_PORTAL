@@ -22,6 +22,7 @@ export default function Login() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [locked, setLocked] = useState(false)
 
+  document.title = 'Sign in · CashRoute HQ Admin'
   if (user && !busy) return <Navigate to={state?.from ?? '/live'} replace />
 
   const onSubmit = async (e: FormEvent) => {

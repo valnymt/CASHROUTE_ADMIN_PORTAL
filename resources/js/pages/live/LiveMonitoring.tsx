@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { IconAlert } from '@/components/icons'
 import { Badge, Card, ChipGroup, ErrorBlock, LoadingBlock, statusTone } from '@/components/ui'
 import { cn } from '@/lib/cn'
@@ -30,7 +30,11 @@ export default function LiveMonitoring() {
   const { data: teams } = useApi(() => api.teams.list())
 
   const [filter, setFilter] = useState<Filter>('all')
-  const [staleDemo, setStaleDemo] = useState(false)
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  // AP-08 · Stale GPS Warning is its own URL: /live/stale-gps
+  const staleDemo = pathname.endsWith('/stale-gps')
+  const setStaleDemo = (on: boolean) => navigate(on ? '/live/stale-gps' : '/live')
   const [selected, setSelected] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const [updatedAt, setUpdatedAt] = useState(Date.now())
@@ -183,7 +187,7 @@ export default function LiveMonitoring() {
           <button
             type="button"
             onClick={() => {
-              setStaleDemo((s) => !s)
+              setStaleDemo(!staleDemo)
               setFilter('all')
             }}
             className="text-[12px] font-bold text-violet hover:underline"

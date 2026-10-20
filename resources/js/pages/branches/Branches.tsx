@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Badge, Button, ChipGroup, ErrorBlock, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { api } from '@/services/api'
@@ -14,18 +14,18 @@ export default function Branches() {
   const { data, error, reload } = useApi(() => api.branches.list())
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
-  const [params, setParams] = useSearchParams()
-  const [editing, setEditing] = useState<Branch | 'new' | null>(null)
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const { id } = useParams()
 
-  // Deep link from global search: /branches?edit=BR-001
-  useEffect(() => {
-    const id = params.get('edit')
-    if (id && data) {
-      const b = data.find((x) => x.id === id)
-      if (b) setEditing(b)
-      setParams({}, { replace: true })
-    }
-  }, [params, data, setParams])
+  // The modal is part of the URL: /branches/create and /branches/{id}/edit.
+  const editing: Branch | 'new' | null = pathname.endsWith('/create')
+    ? 'new'
+    : id
+      ? (data?.find((b) => b.id.toLowerCase() === id.toLowerCase()) ?? null)
+      : null
+  const setEditing = (b: Branch | 'new' | null) =>
+    navigate(b === null ? '/branches' : b === 'new' ? '/branches/create' : `/branches/${b.id}/edit`)
 
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -87,6 +87,7 @@ export default function Branches() {
 
       {editing && (
         <BranchForm
+          key={editing === 'new' ? 'new' : editing.id}
           branch={editing === 'new' ? null : editing}
           defaultCode={nextCode}
           onClose={() => setEditing(null)}

@@ -174,8 +174,8 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
         sub: `${branchName(r.branchId)} · ${r.status}`,
         to: r.status === 'Delivered' ? `/reports/${r.id}` : `/approvals/${r.id}`,
       })),
-      ...(branches ?? []).map((b) => ({ key: b.id, group: 'Branches', title: b.name, sub: `${b.code} · ${b.address}`, to: `/branches?edit=${b.id}` })),
-      ...(users ?? []).map((u) => ({ key: u.id, group: 'Staff', title: u.name, sub: `${u.id} · ${u.role}`, to: `/users?edit=${u.id}` })),
+      ...(branches ?? []).map((b) => ({ key: b.id, group: 'Branches', title: b.name, sub: `${b.code} · ${b.address}`, to: `/branches/${b.id}/edit` })),
+      ...(users ?? []).map((u) => ({ key: u.id, group: 'Staff', title: u.name, sub: `${u.id} · ${u.role}`, to: `/users/${u.id}/edit` })),
     ]
     if (!s) return all.slice(0, 8)
     return all.filter((r) => `${r.title} ${r.sub}`.toLowerCase().includes(s)).slice(0, 12)

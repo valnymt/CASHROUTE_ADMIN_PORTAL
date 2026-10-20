@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useMemo, useState, type FormEvent } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button, ChipGroup, ErrorBlock, Input, LoadingBlock, Modal, PageHeader, SearchInput, Select, StatusBadge, Toggle } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { api, ApiError, type UserInput } from '@/services/api'
@@ -18,17 +18,18 @@ export default function Users() {
   const { data: teams } = useApi(() => api.teams.list())
   const [q, setQ] = useState('')
   const [role, setRole] = useState<RoleFilter>('all')
-  const [editing, setEditing] = useState<User | 'new' | null>(null)
-  const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const { id } = useParams()
 
-  useEffect(() => {
-    const id = params.get('edit')
-    if (id && users) {
-      const u = users.find((x) => x.id === id)
-      if (u) setEditing(u)
-      setParams({}, { replace: true })
-    }
-  }, [params, users, setParams])
+  // The modal is part of the URL: /users/create and /users/{id}/edit.
+  const editing: User | 'new' | null = pathname.endsWith('/create')
+    ? 'new'
+    : id
+      ? (users?.find((u) => u.id.toLowerCase() === id.toLowerCase()) ?? null)
+      : null
+  const setEditing = (u: User | 'new' | null) =>
+    navigate(u === null ? '/users' : u === 'new' ? '/users/create' : `/users/${u.id}/edit`)
 
   const where = (u: User) =>
     u.teamId
@@ -94,6 +95,7 @@ export default function Users() {
 
       {editing && (
         <UserForm
+          key={editing === 'new' ? 'new' : editing.id}
           user={editing === 'new' ? null : editing}
           branchOptions={(branches ?? []).map((b) => ({ value: b.id, label: b.name }))}
           onClose={() => setEditing(null)}
