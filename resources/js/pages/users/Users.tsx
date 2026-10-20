@@ -1,0 +1,206 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Button, ChipGroup, ErrorBlock, Input, LoadingBlock, Modal, PageHeader, SearchInput, Select, StatusBadge, Toggle } from '@/components/ui'
+import { DataTable, RowLink } from '@/components/ui/DataTable'
+import { api, ApiError, type UserInput } from '@/services/api'
+import { useApi, useInvalidate } from '@/store/data'
+import { useToast } from '@/store/toast'
+import type { Role, User } from '@/types'
+import UsersTabs from './UsersTabs'
+
+type RoleFilter = 'all' | 'maker' | 'checker' | 'delivery'
+const ROLES: Role[] = ['Maker', 'Checker', 'Maker + Checker', 'Driver', 'Custodian']
+
+/** AP-03 · User Accounts + Add/Edit User modal. */
+export default function Users() {
+  const { data: users, error, reload } = useApi(() => api.users.list())
+  const { data: branches } = useApi(() => api.branches.list())
+  const { data: teams } = useApi(() => api.teams.list())
+  const [q, setQ] = useState('')
+  const [role, setRole] = useState<RoleFilter>('all')
+  const [editing, setEditing] = useState<User | 'new' | null>(null)
+  const [params, setParams] = useSearchParams()
+
+  useEffect(() => {
+    const id = params.get('edit')
+    if (id && users) {
+      const u = users.find((x) => x.id === id)
+      if (u) setEditing(u)
+      setParams({}, { replace: true })
+    }
+  }, [params, users, setParams])
+
+  const where = (u: User) =>
+    u.teamId
+      ? (teams?.find((t) => t.id === u.teamId)?.name ?? u.teamId)
+      : u.branchId
+        ? (branches?.find((b) => b.id === u.branchId)?.name ?? u.branchId)
+        : 'Unassigned'
+
+  const rows = useMemo(() => {
+    const s = q.trim().toLowerCase()
+    return (users ?? []).filter((u) => {
+      const okRole =
+        role === 'all' ||
+        (role === 'maker' && u.role.includes('Maker')) ||
+        (role === 'checker' && u.role.includes('Checker')) ||
+        (role === 'delivery' && (u.role === 'Driver' || u.role === 'Custodian'))
+      return okRole && (!s || `${u.name} ${u.username} ${u.id} ${u.email}`.toLowerCase().includes(s))
+    })
+  }, [users, q, role])
+
+  return (
+    <>
+      <UsersTabs />
+      <PageHeader
+        title="User Accounts"
+        subtitle="Assign roles, channels and statuses"
+        actions={<Button onClick={() => setEditing('new')}>+ Add User</Button>}
+      />
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+        <SearchInput value={q} onChange={setQ} placeholder="Search name or username…" className="sm:w-[320px]" />
+        <ChipGroup
+          label="Role"
+          value={role}
+          onChange={setRole}
+          options={[
+            { value: 'all', label: 'All roles' },
+            { value: 'maker', label: 'Maker' },
+            { value: 'checker', label: 'Checker' },
+            { value: 'delivery', label: 'Delivery' },
+          ]}
+        />
+      </div>
+
+      {error ? (
+        <ErrorBlock error={error} onRetry={reload} />
+      ) : !users ? (
+        <LoadingBlock />
+      ) : (
+        <DataTable
+          rows={rows}
+          rowKey={(u) => u.id}
+          onRowClick={(u) => setEditing(u)}
+          columns={[
+            { header: 'User ID', cell: (u) => <span className="font-bold">{u.id}</span>, hideOnMobile: true },
+            { header: 'Name', cell: (u) => u.name, primary: true },
+            { header: 'Role', cell: (u) => u.role },
+            { header: 'Branch / Team', cell: where },
+            { header: 'Status', cell: (u) => <StatusBadge status={u.status} /> },
+          ]}
+          action={(u) => <RowLink onClick={() => setEditing(u)}>Edit ›</RowLink>}
+        />
+      )}
+
+      {editing && (
+        <UserForm
+          user={editing === 'new' ? null : editing}
+          branchOptions={(branches ?? []).map((b) => ({ value: b.id, label: b.name }))}
+          onClose={() => setEditing(null)}
+        />
+      )}
+    </>
+  )
+}
+
+function UserForm({
+  user,
+  branchOptions,
+  onClose,
+}: {
+  user: User | null
+  branchOptions: { value: string; label: string }[]
+  onClose: () => void
+}) {
+  const invalidate = useInvalidate()
+  const toast = useToast()
+  const [form, setForm] = useState<UserInput>(
+    user ?? { name: '', role: '' as Role, mobile: '', email: '', status: 'Active', branchId: null, teamId: null },
+  )
+  const [employeeId] = useState(user?.id ?? '')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  const isDelivery = form.role === 'Driver' || form.role === 'Custodian'
+
+  const set = <K extends keyof UserInput>(k: K, v: UserInput[K]) => {
+    setForm((f) => ({ ...f, [k]: v }))
+    setErrors((e) => {
+      const next = { ...e }
+      delete next[k as string]
+      return next
+    })
+  }
+
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault()
+    setBusy(true)
+    try {
+      const payload = { ...form, branchId: isDelivery ? null : form.branchId }
+      if (user) await api.users.update(user.id, payload)
+      else await api.users.create(payload)
+      invalidate()
+      toast(`${form.name} ${user ? 'updated' : 'added'}.`)
+      onClose()
+    } catch (err) {
+      const ae = err as ApiError
+      setErrors(ae.fields ?? {})
+      toast(ae.message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={user ? 'Edit User' : 'Add User'}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => submit()} loading={busy}>
+            Save User
+          </Button>
+        </>
+      }
+    >
+      <form onSubmit={submit} className="grid gap-4" noValidate>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input label="Full name" placeholder="e.g. Amy Tan" value={form.name} onChange={(e) => set('name', e.target.value)} error={errors.name} required />
+          <Input label="Employee ID" placeholder="e.g. U-1234" value={employeeId} disabled hint={user ? undefined : 'Assigned automatically'} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input label="Mobile number" type="tel" placeholder="+95 …" value={form.mobile} onChange={(e) => set('mobile', e.target.value)} error={errors.mobile} />
+          <Input label="Email" type="email" placeholder="name@bank.com" value={form.email} onChange={(e) => set('email', e.target.value)} error={errors.email} required />
+        </div>
+        <Select
+          label="Role"
+          placeholder="Select role"
+          value={form.role}
+          onChange={(e) => set('role', e.target.value as Role)}
+          options={ROLES.map((r) => ({ value: r, label: r }))}
+          error={errors.role}
+          required
+        />
+        {form.role && !isDelivery && (
+          <Select
+            label="Branch"
+            placeholder="Select branch"
+            value={form.branchId ?? ''}
+            onChange={(e) => set('branchId', e.target.value || null)}
+            options={branchOptions}
+          />
+        )}
+        {isDelivery && <p className="text-[12px] text-ink-60">Delivery staff are grouped under Users & Teams → Delivery Teams.</p>}
+        <Toggle
+          checked={form.status === 'Active'}
+          onChange={(v) => set('status', v ? 'Active' : 'Locked')}
+          label={`Status: ${form.status}`}
+        />
+        <button type="submit" hidden />
+      </form>
+    </Modal>
+  )
+}

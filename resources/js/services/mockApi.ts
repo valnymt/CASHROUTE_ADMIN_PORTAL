@@ -1,0 +1,351 @@
+import type { AuditLog, CashRequest, User } from '@/types'
+import { createSeed, DEMO_PASSWORD, type Db } from '@/lib/seed'
+import { ApiError, type Api, type BranchInput, type UserInput } from './types'
+
+/**
+ * In-browser stand-in for the Laravel API. Data lives in localStorage so the
+ * demo survives reloads; call `resetDemoData()` (or clear site data) to start
+ * over. Every method returns a Promise with a small delay, just like a real
+ * network call, so loading states are exercised.
+ */
+
+const STORAGE_KEY = 'cashroute.mockdb.v2'
+const MAX_ATTEMPTS = 5
+const LATENCY = 180
+
+let db: Db = load()
+
+function load(): Db {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw) as Db
+  } catch {
+    /* storage unavailable or corrupt — fall back to fresh seed */
+  }
+  return createSeed()
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db))
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function resetDemoData() {
+  db = createSeed()
+  save()
+}
+
+const clone = <T>(v: T): T => structuredClone(v)
+
+function respond<T>(fn: () => T): Promise<T> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      try {
+        const result = fn()
+        save()
+        resolve(clone(result))
+      } catch (e) {
+        reject(e)
+      }
+    }, LATENCY)
+  })
+}
+
+function currentUser(): User {
+  const u = db.session && db.users.find((x) => x.id === db.session!.userId)
+  if (!u) throw new ApiError('Your session has expired. Please sign in again.', 'unauthenticated', 401)
+  return u
+}
+
+const canMake = (u: User) => u.role === 'Maker' || u.role === 'Maker + Checker'
+const canCheck = (u: User) => u.role === 'Checker' || u.role === 'Maker + Checker'
+const portalRoles: User['role'][] = ['Maker', 'Checker', 'Maker + Checker']
+
+function audit(event: AuditLog['event'], requestId: string, userId: string) {
+  db.audit.unshift({
+    id: `A-${String(db.seq.audit++).padStart(4, '0')}`,
+    at: new Date().toISOString(),
+    event,
+    requestId,
+    userId,
+    source: 'Web portal',
+    gps: null,
+  })
+}
+
+function findRequest(id: string): CashRequest {
+  const r = db.requests.find((x) => x.id.toLowerCase() === id.toLowerCase())
+  if (!r) throw new ApiError(`Request ${id} was not found.`, 'not_found', 404)
+  return r
+}
+
+function validateBranch(data: BranchInput, id?: string) {
+  const fields: Record<string, string> = {}
+  if (!data.code.trim()) fields.code = 'Branch code is required.'
+  else if (db.branches.some((b) => b.code.toLowerCase() === data.code.trim().toLowerCase() && b.id !== id))
+    fields.code = 'This branch code is already in use.'
+  if (!data.name.trim()) fields.name = 'Branch name is required.'
+  if (!data.address.trim()) fields.address = 'Address is required.'
+  if (!Number.isFinite(data.lat) || data.lat < -90 || data.lat > 90) fields.lat = 'Latitude must be between -90 and 90.'
+  if (!Number.isFinite(data.lng) || data.lng < -180 || data.lng > 180) fields.lng = 'Longitude must be between -180 and 180.'
+  if (!Number.isFinite(data.radius) || data.radius < 10 || data.radius > 2000) fields.radius = 'Radius must be 10–2000 m.'
+  if (data.contactEmail && !/^\S+@\S+\.\S+$/.test(data.contactEmail)) fields.contactEmail = 'Enter a valid email.'
+  if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
+}
+
+function validateUser(data: UserInput, id?: string) {
+  const fields: Record<string, string> = {}
+  if (!data.name.trim()) fields.name = 'Full name is required.'
+  if (!data.role) fields.role = 'Select a role.'
+  if (!data.email.trim()) fields.email = 'Email is required.'
+  else if (!/^\S+@\S+\.\S+$/.test(data.email)) fields.email = 'Enter a valid email.'
+  else if (db.users.some((u) => u.email.toLowerCase() === data.email.toLowerCase() && u.id !== id))
+    fields.email = 'This email is already registered.'
+  if (data.mobile && !/^\+?[\d\s-]{6,}$/.test(data.mobile)) fields.mobile = 'Enter a valid mobile number.'
+  if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
+}
+
+export const mockApi: Api = {
+  auth: {
+    me: () => respond(() => (db.session ? db.users.find((u) => u.id === db.session!.userId) ?? null : null)),
+
+    login: (username, password) =>
+      respond(() => {
+        const key = username.trim().toLowerCase()
+        if (!key || !password)
+          throw new ApiError('Enter your username and password.', 'validation', 422, {
+            ...(key ? {} : { username: 'Username is required.' }),
+            ...(password ? {} : { password: 'Password is required.' }),
+          })
+        const u = db.users.find((x) => x.username.toLowerCase() === key)
+        if (u?.status === 'Locked')
+          throw new ApiError('Account locked', 'locked', 423)
+        if (!u || password !== DEMO_PASSWORD) {
+          const attempts = (db.failedAttempts[key] ?? 0) + 1
+          db.failedAttempts[key] = attempts
+          if (u && attempts >= MAX_ATTEMPTS) {
+            u.status = 'Locked'
+            save()
+            throw new ApiError('Account locked', 'locked', 423)
+          }
+          save()
+          const left = MAX_ATTEMPTS - attempts
+          throw new ApiError(
+            `Incorrect username or password.${u ? ` ${left} attempt${left === 1 ? '' : 's'} left.` : ''}`,
+            'invalid_credentials',
+            401,
+          )
+        }
+        if (!portalRoles.includes(u.role))
+          throw new ApiError('Delivery staff sign in with the CashRoute mobile app.', 'forbidden', 403)
+        db.failedAttempts[key] = 0
+        db.session = { userId: u.id }
+        return u
+      }),
+
+    logout: () =>
+      respond(() => {
+        db.session = null
+      }),
+
+    simulateLockout: (username) =>
+      respond(() => {
+        const key = (username.trim() || 'admin.maker').toLowerCase()
+        const u = db.users.find((x) => x.username.toLowerCase() === key)
+        db.failedAttempts[key] = MAX_ATTEMPTS
+        if (u) u.status = 'Locked'
+      }),
+  },
+
+  branches: {
+    list: () => respond(() => db.branches),
+    create: (data) =>
+      respond(() => {
+        validateBranch(data)
+        const b = { ...data, code: data.code.trim().toUpperCase(), id: data.code.trim().toUpperCase() }
+        db.branches.push(b)
+        return b
+      }),
+    update: (id, data) =>
+      respond(() => {
+        validateBranch(data, id)
+        const i = db.branches.findIndex((b) => b.id === id)
+        if (i < 0) throw new ApiError('Branch not found.', 'not_found', 404)
+        db.branches[i] = { ...data, code: data.code.trim().toUpperCase(), id }
+        return db.branches[i]
+      }),
+  },
+
+  users: {
+    list: () => respond(() => db.users),
+    create: (data) =>
+      respond(() => {
+        validateUser(data)
+        const u: User = {
+          ...data,
+          id: `U-${String(db.seq.user++).padStart(3, '0')}`,
+          username: data.username || data.name.trim().toLowerCase().replace(/\s+/g, '.'),
+        }
+        db.users.push(u)
+        return u
+      }),
+    update: (id, data) =>
+      respond(() => {
+        validateUser(data, id)
+        const u = db.users.find((x) => x.id === id)
+        if (!u) throw new ApiError('User not found.', 'not_found', 404)
+        Object.assign(u, data, { username: u.username })
+        if (u.status === 'Active') db.failedAttempts[u.username.toLowerCase()] = 0
+        return u
+      }),
+  },
+
+  teams: {
+    list: () => respond(() => db.teams),
+    create: ({ name, memberIds }) =>
+      respond(() => {
+        if (!name.trim()) throw new ApiError('Team name is required.', 'validation', 422, { name: 'Team name is required.' })
+        if (db.teams.some((t) => t.name.toLowerCase() === name.trim().toLowerCase()))
+          throw new ApiError('A team with this name exists.', 'validation', 422, { name: 'A team with this name exists.' })
+        const t = { id: `T-${db.seq.team++}`, name: name.trim(), status: 'Available' as const, currentRequestId: null, memberIds: [] as string[] }
+        db.teams.push(t)
+        setMembers(t.id, memberIds)
+        return t
+      }),
+    update: (id, { name, memberIds }) =>
+      respond(() => {
+        const t = db.teams.find((x) => x.id === id)
+        if (!t) throw new ApiError('Team not found.', 'not_found', 404)
+        if (!name.trim()) throw new ApiError('Team name is required.', 'validation', 422, { name: 'Team name is required.' })
+        t.name = name.trim()
+        setMembers(id, memberIds)
+        return t
+      }),
+  },
+
+  requests: {
+    list: () => respond(() => db.requests),
+    get: (id) => respond(() => findRequest(id)),
+    create: (data) =>
+      respond(() => {
+        const me = currentUser()
+        if (!canMake(me)) throw new ApiError('Only Makers can create requests.', 'forbidden', 403)
+        const fields: Record<string, string> = {}
+        if (!db.branches.some((b) => b.id === data.branchId && b.active)) fields.branchId = 'Select an active branch.'
+        if (!(data.amount > 0)) fields.amount = 'Enter an amount greater than 0.'
+        if (!data.date) fields.date = 'Pick a date.'
+        if (!data.slot) fields.slot = 'Pick a time slot.'
+        if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
+        const now = new Date().toISOString()
+        const r: CashRequest = {
+          ...data,
+          id: `REQ-${db.seq.request++}`,
+          createdBy: me.id,
+          createdAt: now,
+          status: 'Pending',
+          teamId: null,
+          rejectReason: null,
+          timeline: [
+            { label: 'Created', by: me.name, at: now },
+            { label: 'Submitted for approval', by: me.name, at: now },
+          ],
+        }
+        db.requests.unshift(r)
+        audit('Create', r.id, me.id)
+        return r
+      }),
+    approve: (id) =>
+      respond(() => {
+        const me = currentUser()
+        const r = findRequest(id)
+        if (!canCheck(me)) throw new ApiError('Only Checkers can approve requests.', 'forbidden', 403)
+        if (r.createdBy === me.id)
+          throw new ApiError('Maker-Checker rule: you cannot approve a request you created.', 'maker_checker', 403)
+        if (r.status !== 'Pending') throw new ApiError(`Request is already ${r.status.toLowerCase()}.`, 'conflict', 409)
+        r.status = 'Approved'
+        r.timeline.push({ label: 'Approved', by: me.name, at: new Date().toISOString() })
+        audit('Approve', r.id, me.id)
+        return r
+      }),
+    reject: (id, reason) =>
+      respond(() => {
+        const me = currentUser()
+        const r = findRequest(id)
+        if (!canCheck(me)) throw new ApiError('Only Checkers can reject requests.', 'forbidden', 403)
+        if (r.createdBy === me.id)
+          throw new ApiError('Maker-Checker rule: you cannot reject a request you created.', 'maker_checker', 403)
+        if (!reason.trim())
+          throw new ApiError('A reason is required.', 'validation', 422, { reason: 'Required — submission is blocked until a reason is entered.' })
+        if (r.status !== 'Pending') throw new ApiError(`Request is already ${r.status.toLowerCase()}.`, 'conflict', 409)
+        r.status = 'Rejected'
+        r.rejectReason = reason.trim()
+        r.timeline.push({ label: `Rejected — ${reason.trim()}`, by: me.name, at: new Date().toISOString() })
+        audit('Reject', r.id, me.id)
+        return r
+      }),
+    assign: (id, teamId) =>
+      respond(() => {
+        const me = currentUser()
+        const r = findRequest(id)
+        const t = db.teams.find((x) => x.id === teamId)
+        if (r.status !== 'Approved') throw new ApiError('Only approved requests can be assigned.', 'conflict', 409)
+        if (!t) throw new ApiError('Select a team.', 'validation', 422)
+        if (t.status !== 'Available') throw new ApiError(`${t.name} is on a trip.`, 'conflict', 409)
+        r.status = 'Assigned'
+        r.teamId = t.id
+        r.timeline.push({ label: `${t.name} assigned`, by: me.name, at: new Date().toISOString() })
+        t.status = 'On trip'
+        t.currentRequestId = r.id
+        audit('Assign', r.id, me.id)
+        db.notifications.unshift({
+          id: `N-${Date.now()}`,
+          title: `${t.name} notified`,
+          body: `Push sent for ${r.id}`,
+          at: new Date().toISOString(),
+          read: false,
+          link: `/approvals/${r.id}`,
+        })
+        return r
+      }),
+  },
+
+  audit: { list: () => respond(() => db.audit) },
+  trips: { list: () => respond(() => db.trips) },
+
+  notifications: {
+    list: () => respond(() => db.notifications),
+    markAllRead: () =>
+      respond(() => {
+        db.notifications.forEach((n) => (n.read = true))
+      }),
+  },
+}
+
+/** Move users into a team (removing them from any other team). */
+function setMembers(teamId: string, memberIds: string[]) {
+  for (const t of db.teams) {
+    if (t.id === teamId) continue
+    t.memberIds = t.memberIds.filter((m) => !memberIds.includes(m))
+  }
+  const team = db.teams.find((t) => t.id === teamId)!
+  for (const u of db.users) {
+    if (memberIds.includes(u.id)) u.teamId = teamId
+    else if (u.teamId === teamId) u.teamId = null
+  }
+  team.memberIds = [...memberIds]
+}
+
+/**
+ * Demo-only: unlock an account again (in production a Super Admin does this
+ * from Users & Teams → Edit → Status).
+ */
+export function demoUnlock(username: string) {
+  const key = username.trim().toLowerCase()
+  const u = db.users.find((x) => x.username.toLowerCase() === key)
+  if (u) u.status = 'Active'
+  db.failedAttempts[key] = 0
+  save()
+}
