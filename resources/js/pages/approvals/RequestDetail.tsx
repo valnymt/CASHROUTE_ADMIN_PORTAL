@@ -91,6 +91,7 @@ export default function RequestDetail() {
               ['Drop-off', r.type === 'Deposit' ? hq?.name : branch?.name],
               ['Amount', fmtMoney(r.amount, r.currency)],
               ['Time slot', `${fmtDate(r.date)} · ${r.slot}`],
+              ['Estimated timeline', r.estimatedTimeline || '—'],
               ['Remarks', r.remarks || '—'],
               ['Created by', mine ? `${creator?.name} (you)` : `${creator?.name} (${creator?.role === 'Maker + Checker' ? 'Maker' : creator?.role})`],
               ['Created at', fmtDateTime(r.createdAt)],

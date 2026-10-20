@@ -80,6 +80,7 @@ export default function RequestShow() {
               ['Drop-off', r.type === 'Deposit' ? hq : branch],
               ['Amount', fmtMoney(r.amount, r.currency)],
               ['Requested for', `${fmtDate(r.date)} · ${r.slot}`],
+              ['Estimated timeline', r.estimatedTimeline || '—'],
               ['Remarks', r.remarks || '—'],
               ['Maker', mine ? `${maker} (you)` : maker],
               ...(team ? ([['Delivery team', team]] as [string, string][]) : []),

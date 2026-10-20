@@ -7,10 +7,9 @@ import { api, ApiError, type RequestInput } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
-import type { Currency, Direction } from '@/types'
+import type { Direction } from '@/types'
 
 const SLOTS = ['08:00 – 10:00', '09:00 – 11:00', '10:00 – 12:00', '13:00 – 15:00', '14:00 – 16:00', '15:00 – 17:00']
-const CURRENCIES: Currency[] = ['MMK', 'SGD', 'USD']
 const HQ_ID = 'HQ-001'
 
 const tomorrow = () => {
@@ -41,6 +40,7 @@ export default function NewRequest() {
     currency: 'MMK',
     date: tomorrow(),
     slot: '10:00 – 12:00',
+    estimatedTimeline: '',
     remarks: '',
   })
   const [form, setForm] = useState(blank)
@@ -58,6 +58,7 @@ export default function NewRequest() {
       currency: existing.currency,
       date: existing.date,
       slot: existing.slot,
+      estimatedTimeline: existing.estimatedTimeline ?? '',
       remarks: existing.remarks,
     })
   }, [existing])
@@ -178,9 +179,16 @@ export default function NewRequest() {
             <Input label="Drop-off (auto)" value={dropoff} readOnly tabIndex={-1} className="[&_input]:bg-ink-6" />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
-            <Input label="Amount" inputMode="decimal" placeholder="0.00" value={form.amountText} onChange={(e) => onAmount(e.target.value)} error={errors.amount} required />
-            <Select label="Currency" value={form.currency} onChange={(e) => set('currency', e.target.value as Currency)} options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input label="Amount" inputMode="decimal" placeholder="0.00" value={form.amountText} onChange={(e) => onAmount(e.target.value)} error={errors.amount} suffix={form.currency} required />
+            <Input
+              label="Estimated timeline"
+              placeholder="e.g. Within 2 hours, or complete by 12:30"
+              value={form.estimatedTimeline}
+              maxLength={80}
+              onChange={(e) => set('estimatedTimeline', e.target.value)}
+              hint="When the team should finish this request"
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

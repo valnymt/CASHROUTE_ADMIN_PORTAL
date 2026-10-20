@@ -71,6 +71,8 @@ export interface CashRequest {
   currency: Currency
   date: string // YYYY-MM-DD
   slot: string // "10:00 – 12:00"
+  /** When the Maker wants the team to finish, in their own words (e.g. "within 2 hours"). */
+  estimatedTimeline?: string
   remarks: string
   createdBy: string // user id
   createdAt: string // ISO
