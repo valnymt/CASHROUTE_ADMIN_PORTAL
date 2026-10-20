@@ -5,6 +5,8 @@ import type { User } from '@/types'
 interface AuthState {
   user: User | null
   ready: boolean
+  /** True after the user explicitly logged out (or timed out) in this tab. */
+  loggedOut: boolean
   login: (username: string, password: string) => Promise<User>
   logout: () => Promise<void>
   isMaker: boolean
@@ -16,6 +18,7 @@ const AuthCtx = createContext<AuthState | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
+  const [loggedOut, setLoggedOut] = useState(false)
 
   useEffect(() => {
     api.auth
@@ -27,12 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     const u = await api.auth.login(username, password)
+    setLoggedOut(false)
     setUser(u)
     return u
   }, [])
 
   const logout = useCallback(async () => {
     await api.auth.logout().catch(() => {})
+    setLoggedOut(true)
     setUser(null)
   }, [])
 
@@ -42,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         ready,
+        loggedOut,
         login,
         logout,
         isMaker: role === 'Maker' || role === 'Maker + Checker',

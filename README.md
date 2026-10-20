@@ -113,7 +113,7 @@ vite.config.js             Vite + laravel-vite-plugin + React + Tailwind
 
 ## Screens
 
-Sign in first (`admin.maker` / `password`); every other page redirects to `/login` when you're signed out. Demo IDs: requests `REQ-1048` (someone else's) and `REQ-1049` (yours, Maker-Checker guard), branch `BR-001`, user `U-001`, trip `REQ-1042`.
+**Preview mode (default):** open any URL directly. You're signed in automatically as Admin User, so no login is needed to look around. The login screen is still at `/login`, and **Log out** takes you there. Set `VITE_REQUIRE_LOGIN=true` in `.env` and run `npm run build` to make every page require signing in (`admin.maker` / `password`). Demo IDs: requests `REQ-1048` (someone else's) and `REQ-1049` (yours, Maker-Checker guard), branch `BR-001`, user `U-001`, trip `REQ-1042`.
 
 | Screen | URL | What works |
 | --- | --- | --- |

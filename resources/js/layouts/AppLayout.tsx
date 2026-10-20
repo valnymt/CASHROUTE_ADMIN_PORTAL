@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Navigate, Outlet, matchPath, useLocation } from 'react-router-dom'
 import Backdrop from '@/components/Backdrop'
 import { LoadingBlock } from '@/components/ui'
+import { DEMO_PASSWORD } from '@/lib/seed'
+import { USE_MOCK_API } from '@/services/api'
+import { demoUnlock } from '@/services/mockApi'
 import { useAuth } from '@/store/auth'
 import { IdleTimeoutProvider } from './IdleTimeout'
 import Sidebar from './Sidebar'
@@ -21,14 +24,34 @@ const META: { path: string; crumbs: string[]; title: string }[] = [
   { path: '/reports', crumbs: ['Insights', 'Reports'], title: 'Reports' },
 ]
 
+/**
+ * Preview mode (default while there's no backend): opening any page signs in
+ * as the demo Admin User automatically, so every screen can be browsed by URL.
+ * Set VITE_REQUIRE_LOGIN=true in .env to force the login screen instead.
+ */
+const PREVIEW = USE_MOCK_API && import.meta.env.VITE_REQUIRE_LOGIN !== 'true'
+const PREVIEW_USER = 'admin.maker'
+
 export default function AppLayout() {
-  const { user, ready } = useAuth()
+  const { user, ready, login, loggedOut } = useAuth()
+  // After an explicit log-out, stay on the login screen instead of auto signing in again.
+  const preview = PREVIEW && !loggedOut
+  const [autoLogin, setAutoLogin] = useState<'idle' | 'pending' | 'failed'>('idle')
   const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => setMenuOpen(false), [pathname])
 
-  if (!ready)
+  useEffect(() => {
+    if (!preview || !ready || user || autoLogin !== 'idle') return
+    setAutoLogin('pending')
+    demoUnlock(PREVIEW_USER)
+    login(PREVIEW_USER, DEMO_PASSWORD)
+      .then(() => setAutoLogin('idle'))
+      .catch(() => setAutoLogin('failed'))
+  }, [preview, ready, user, autoLogin, login])
+
+  if (!ready || (!user && preview && autoLogin !== 'failed'))
     return (
       <div className="grid min-h-dvh place-items-center">
         <LoadingBlock />
