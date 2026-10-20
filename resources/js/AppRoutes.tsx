@@ -33,10 +33,11 @@ export default function AppRoutes() {
           <Route path="/live" element={<LiveMonitoring />} />
           <Route path="/live/stale-gps" element={<LiveMonitoring />} />
 
-          {/* AP-04/05 · New Cash Request, All Requests, Request summary */}
+          {/* AP-04/05 · New Cash Request, All Requests, Request summary, Edit request */}
           <Route path="/requests" element={<Requests />} />
           <Route path="/requests/new" element={<NewRequest />} />
           <Route path="/requests/:id" element={<RequestShow />} />
+          <Route path="/requests/:id/edit" element={<NewRequest />} />
 
           {/* AP-06 · Approvals, Request Detail, Maker-Checker guard; AP-07 · Reject / Assign */}
           <Route path="/approvals" element={<Approvals />} />

@@ -1,6 +1,6 @@
 import type { AuditLog, CashRequest, User } from '@/types'
 import { createSeed, DEMO_PASSWORD, type Db } from '@/lib/seed'
-import { ApiError, type Api, type BranchInput, type UserInput } from './types'
+import { ApiError, type Api, type BranchInput, type RequestInput, type UserInput } from './types'
 
 /**
  * In-browser stand-in for the Laravel API. Data lives in localStorage so the
@@ -79,6 +79,24 @@ function audit(event: AuditLog['event'], requestId: string, userId: string) {
 function findRequest(id: string): CashRequest {
   const r = db.requests.find((x) => x.id.toLowerCase() === id.toLowerCase())
   if (!r) throw new ApiError(`Request ${id} was not found.`, 'not_found', 404)
+  return r
+}
+
+function validateRequest(data: RequestInput) {
+  const fields: Record<string, string> = {}
+  if (!db.branches.some((b) => b.id === data.branchId && b.active)) fields.branchId = 'Select an active branch.'
+  if (!(data.amount > 0)) fields.amount = 'Enter an amount greater than 0.'
+  if (!data.date) fields.date = 'Pick a date.'
+  if (!data.slot) fields.slot = 'Pick a time slot.'
+  if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
+}
+
+/** A Maker may only edit or cancel their own request, and only while it is Pending. */
+function ownPendingRequest(id: string, me: User, action: 'edit' | 'cancel'): CashRequest {
+  const r = findRequest(id)
+  if (r.createdBy !== me.id) throw new ApiError(`Only the Maker who created ${r.id} can ${action} it.`, 'forbidden', 403)
+  if (r.status !== 'Pending')
+    throw new ApiError(`${r.id} is ${r.status.toLowerCase()} and can no longer be ${action === 'edit' ? 'edited' : 'cancelled'}.`, 'conflict', 409)
   return r
 }
 
@@ -233,12 +251,7 @@ export const mockApi: Api = {
       respond(() => {
         const me = currentUser()
         if (!canMake(me)) throw new ApiError('Only Makers can create requests.', 'forbidden', 403)
-        const fields: Record<string, string> = {}
-        if (!db.branches.some((b) => b.id === data.branchId && b.active)) fields.branchId = 'Select an active branch.'
-        if (!(data.amount > 0)) fields.amount = 'Enter an amount greater than 0.'
-        if (!data.date) fields.date = 'Pick a date.'
-        if (!data.slot) fields.slot = 'Pick a time slot.'
-        if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
+        validateRequest(data)
         const now = new Date().toISOString()
         const r: CashRequest = {
           ...data,
@@ -255,6 +268,30 @@ export const mockApi: Api = {
         }
         db.requests.unshift(r)
         audit('Create', r.id, me.id)
+        return r
+      }),
+    update: (id, data) =>
+      respond(() => {
+        const me = currentUser()
+        const r = ownPendingRequest(id, me, 'edit')
+        validateRequest(data)
+        Object.assign(r, data)
+        r.timeline.push({ label: 'Edited by Maker', by: me.name, at: new Date().toISOString() })
+        audit('Edit', r.id, me.id)
+        return r
+      }),
+    cancel: (id, reason) =>
+      respond(() => {
+        const me = currentUser()
+        const r = ownPendingRequest(id, me, 'cancel')
+        r.status = 'Cancelled'
+        r.cancelReason = reason.trim() || null
+        r.timeline.push({
+          label: reason.trim() ? `Cancelled by Maker — ${reason.trim()}` : 'Cancelled by Maker',
+          by: me.name,
+          at: new Date().toISOString(),
+        })
+        audit('Cancel', r.id, me.id)
         return r
       }),
     approve: (id) =>

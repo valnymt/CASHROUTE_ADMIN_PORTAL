@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Badge, ChipGroup, ErrorBlock, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
+import { Badge, ChipGroup, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { fmtDay, fmtMoney, shortSlot } from '@/lib/format'
 import { api } from '@/services/api'
@@ -9,7 +9,7 @@ import { useApi } from '@/store/data'
 import type { CashRequest } from '@/types'
 
 type Scope = 'all' | 'mine'
-type StatusFilter = 'all' | 'pending' | 'approved' | 'completed' | 'rejected'
+type StatusFilter = 'all' | 'pending' | 'approved' | 'completed' | 'rejected' | 'cancelled'
 
 const IN_PROGRESS: CashRequest['status'][] = ['Approved', 'Assigned', 'In Transit']
 
@@ -38,7 +38,8 @@ export default function Requests() {
           (status === 'pending' && r.status === 'Pending') ||
           (status === 'approved' && IN_PROGRESS.includes(r.status)) ||
           (status === 'completed' && r.status === 'Delivered') ||
-          (status === 'rejected' && (r.status === 'Rejected' || r.status === 'Cancelled')),
+          (status === 'rejected' && r.status === 'Rejected') ||
+          (status === 'cancelled' && r.status === 'Cancelled'),
       )
       .filter((r) => !s || `${r.id} ${branchShort(r.branchId)} ${r.type}`.toLowerCase().includes(s))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,29 +52,33 @@ export default function Requests() {
         subtitle="Every cash request and where it is in the approval flow"
       />
 
-      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
-        <SearchInput value={q} onChange={setQ} placeholder="Search request ID or branch…" className="xl:w-[300px]" />
-        <ChipGroup
-          label="Created by"
-          value={scope}
-          onChange={setScope}
-          options={[
-            { value: 'all', label: 'All requests' },
-            { value: 'mine', label: 'Created by me' },
-          ]}
-        />
-        <ChipGroup
-          label="Status"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: 'all', label: 'Any status' },
-            { value: 'pending', label: 'Pending' },
-            { value: 'approved', label: 'In progress' },
-            { value: 'completed', label: 'Completed' },
-            { value: 'rejected', label: 'Rejected' },
-          ]}
-        />
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+        <SearchInput value={q} onChange={setQ} placeholder="Search request ID or branch…" className="lg:w-[300px]" />
+        <div className="flex flex-wrap items-center gap-2">
+          <ChipGroup
+            label="Created by"
+            value={scope}
+            onChange={setScope}
+            options={[
+              { value: 'all', label: 'All requests' },
+              { value: 'mine', label: 'Created by me' },
+            ]}
+          />
+          <FilterDropdown
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            defaultValue="all"
+            options={[
+              { value: 'all', label: 'Any status' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'approved', label: 'In progress' },
+              { value: 'completed', label: 'Completed' },
+              { value: 'rejected', label: 'Rejected' },
+              { value: 'cancelled', label: 'Cancelled' },
+            ]}
+          />
+        </div>
       </div>
 
       {error ? (

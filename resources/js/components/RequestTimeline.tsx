@@ -10,7 +10,7 @@ export default function RequestTimeline({ request }: { request: CashRequest }) {
     <ol className="flex flex-col gap-3">
       {items.map((t, i) => (
         <li key={i} className="flex gap-2.5">
-          <span className={cn('mt-1 size-2.5 shrink-0 rounded-full', t.label.startsWith('Rejected') ? 'bg-danger' : 'bg-lime shadow-glow-lime')} />
+          <span className={cn('mt-1 size-2.5 shrink-0 rounded-full', t.label.startsWith('Rejected') || t.label.startsWith('Cancelled') ? 'bg-danger' : 'bg-lime shadow-glow-lime')} />
           <div className="leading-tight">
             <p className="text-[13px] font-bold text-ink">{t.label}</p>
             <p className="text-[11px] text-ink-60">

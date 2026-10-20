@@ -56,6 +56,7 @@ export default function AuditTrail() {
             { value: 'Approve', label: 'Approve' },
             { value: 'Reject', label: 'Reject' },
             { value: 'Assign', label: 'Assign' },
+            { value: 'Edit', label: 'Edit' },
             { value: 'Cancel', label: 'Cancel' },
             { value: 'App trip', label: 'App trip' },
           ]}

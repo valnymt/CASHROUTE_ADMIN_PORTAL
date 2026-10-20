@@ -77,6 +77,8 @@ export interface CashRequest {
   status: RequestStatus
   teamId: string | null
   rejectReason: string | null
+  /** Set when the Maker withdraws their own pending request. */
+  cancelReason?: string | null
   timeline: TimelineEntry[]
 }
 
@@ -85,6 +87,7 @@ export type AuditEvent =
   | 'Approve'
   | 'Reject'
   | 'Assign'
+  | 'Edit'
   | 'Cancel'
   | 'In Transit'
   | 'Delivered'

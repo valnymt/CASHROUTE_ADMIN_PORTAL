@@ -2,6 +2,8 @@ import {
   forwardRef,
   useEffect,
   useId,
+  useRef,
+  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -207,6 +209,100 @@ export function ChipGroup<T extends string>({
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Pill that opens a menu on hover (and on click/tap for touch screens).
+ * Looks like a selected chip when a non-default option is chosen.
+ */
+export function FilterDropdown<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+  defaultValue,
+}: {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+  label: string
+  /** The "no filter" option; the pill is highlighted when value differs from it. */
+  defaultValue?: T
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const closeTimer = useRef<number>(0)
+  const current = options.find((o) => o.value === value)
+  const active = defaultValue !== undefined && value !== defaultValue
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const show = () => {
+    window.clearTimeout(closeTimer.current)
+    setOpen(true)
+  }
+  // Small delay so moving the mouse from the pill into the menu doesn't close it.
+  const hide = () => {
+    closeTimer.current = window.setTimeout(() => setOpen(false), 120)
+  }
+
+  return (
+    <div ref={ref} className="relative" onMouseEnter={show} onMouseLeave={hide}>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`${label}: ${current?.label ?? ''}`}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-[20px] px-4 py-2 text-[12px] font-bold whitespace-nowrap transition',
+          active || open ? 'bg-plum text-white shadow-plum' : 'border border-white/95 bg-white/70 text-ink hover:bg-white',
+        )}
+      >
+        {current?.label}
+        <IconChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          aria-label={label}
+          className="glass-strong animate-pop-in absolute top-full left-0 z-30 mt-2 min-w-[180px] rounded-[18px] p-1.5"
+        >
+          {options.map((o) => {
+            const on = o.value === value
+            return (
+              <li key={o.value} role="option" aria-selected={on}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(o.value)
+                    setOpen(false)
+                  }}
+                  className={cn(
+                    'flex w-full items-center justify-between gap-3 rounded-[14px] px-3 py-2 text-left text-[12px] font-semibold transition',
+                    on ? 'bg-periwinkle-18 text-plum' : 'text-ink hover:bg-ink-4',
+                  )}
+                >
+                  {o.label}
+                  {on && <span className="size-1.5 rounded-full bg-violet" />}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 }

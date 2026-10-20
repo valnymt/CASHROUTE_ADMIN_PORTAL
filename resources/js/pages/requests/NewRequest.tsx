@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, ErrorBlock, Input, LoadingBlock, PageHeader, Select, Textarea } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { isoDay } from '@/lib/format'
@@ -19,13 +19,19 @@ const tomorrow = () => {
   return isoDay(d)
 }
 
-/** AP-04/05 · Unified Request Creation (Maker workspace). */
+/**
+ * AP-04/05 · Unified Request Creation (Maker workspace).
+ * Also the edit form for a Maker's own pending request: /requests/{id}/edit.
+ */
 export default function NewRequest() {
+  const { id } = useParams()
+  const editing = !!id
   const { user, isMaker } = useAuth()
   const navigate = useNavigate()
   const invalidate = useInvalidate()
   const toast = useToast()
   const { data: branches, error, reload } = useApi(() => api.branches.list())
+  const { data: existing, error: loadError } = useApi(() => (id ? api.requests.get(id) : Promise.resolve(null)), [id])
 
   const blank = (): RequestInput & { amountText: string } => ({
     type: 'Deposit',
@@ -41,6 +47,21 @@ export default function NewRequest() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
 
+  // Edit mode: fill the form from the saved request once it loads.
+  useEffect(() => {
+    if (!existing) return
+    setForm({
+      type: existing.type,
+      branchId: existing.branchId,
+      amount: existing.amount,
+      amountText: existing.amount.toLocaleString('en-US'),
+      currency: existing.currency,
+      date: existing.date,
+      slot: existing.slot,
+      remarks: existing.remarks,
+    })
+  }, [existing])
+
   const branchOptions = useMemo(
     () =>
       (branches ?? [])
@@ -49,8 +70,18 @@ export default function NewRequest() {
     [branches],
   )
 
-  if (error) return <ErrorBlock error={error} onRetry={reload} />
-  if (!branches) return <LoadingBlock />
+  if (error || loadError) return <ErrorBlock error={(error ?? loadError)!} onRetry={reload} />
+  if (!branches || (editing && !existing)) return <LoadingBlock />
+
+  // Only the Maker who created a request may edit it, and only while it's Pending.
+  const editBlocked =
+    editing && existing
+      ? existing.createdBy !== user?.id
+        ? `Only the Maker who created ${existing.id} can edit it.`
+        : existing.status !== 'Pending'
+          ? `${existing.id} is ${existing.status.toLowerCase()} and can no longer be edited.`
+          : null
+      : null
 
   const name = (id: string) => branches.find((b) => b.id === id)?.name ?? '—'
   const pickup = form.type === 'Deposit' ? name(form.branchId) : name(HQ_ID)
@@ -78,9 +109,9 @@ export default function NewRequest() {
     setBusy(true)
     try {
       const { amountText: _t, ...payload } = form
-      const r = await api.requests.create(payload)
+      const r = editing ? await api.requests.update(id!, payload) : await api.requests.create(payload)
       invalidate()
-      toast(`${r.id} submitted — a Checker has been notified.`)
+      toast(editing ? `${r.id} updated.` : `${r.id} submitted — a Checker has been notified.`)
       navigate(`/requests/${r.id}`)
     } catch (err) {
       const ae = err as ApiError
@@ -94,14 +125,22 @@ export default function NewRequest() {
   return (
     <>
       <PageHeader
-        title="Unified Request Creation"
-        subtitle="Maker workspace — submitted requests go to a Checker for approval"
+        title={editing ? `Edit ${existing?.id}` : 'Unified Request Creation'}
+        subtitle={
+          editing
+            ? 'Changes are saved to the same request; it stays Pending for the Checker'
+            : 'Maker workspace — submitted requests go to a Checker for approval'
+        }
         actions={
-          <Button variant="ghost" to="/requests">
-            View all requests
+          <Button variant="ghost" to={editing ? `/requests/${id}` : '/requests'}>
+            {editing ? '← Back to request' : 'View all requests'}
           </Button>
         }
       />
+
+      {editBlocked && (
+        <div className="rounded-[18px] bg-amber-16 px-4 py-3 text-[12px] font-semibold text-amber">{editBlocked}</div>
+      )}
 
       {!isMaker && (
         <div className="rounded-[18px] bg-amber-16 px-4 py-3 text-[12px] font-semibold text-amber">
@@ -152,11 +191,11 @@ export default function NewRequest() {
           <Textarea label="Remarks" placeholder="Add any notes for the checker or delivery team…" value={form.remarks} maxLength={500} onChange={(e) => set('remarks', e.target.value)} />
 
           <div className="flex flex-wrap justify-end gap-3">
-            <Button variant="ghost" onClick={() => setForm(blank())}>
+            <Button variant="ghost" onClick={() => (editing ? navigate(`/requests/${id}`) : setForm(blank()))}>
               Cancel
             </Button>
-            <Button type="submit" loading={busy} disabled={!isMaker}>
-              Submit for approval
+            <Button type="submit" loading={busy} disabled={!isMaker || !!editBlocked}>
+              {editing ? 'Save changes' : 'Submit for approval'}
             </Button>
           </div>
         </form>
