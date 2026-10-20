@@ -116,14 +116,6 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
 
       <div className="min-h-6 flex-1" />
 
-      <div className="flex shrink-0 flex-col gap-1 rounded-[20px] bg-lime-28 p-3.5">
-        <p className="flex items-center gap-2 text-[12px] font-bold text-ink">
-          <span className="size-[9px] rounded-full bg-lime shadow-[0_0_8px_rgba(150,215,76,0.9)]" />
-          All systems normal
-        </p>
-        <p className="text-[11px] text-ink-60">GPS feeds 11 / 12 live</p>
-      </div>
-
       {user && (
         <div className="flex shrink-0 items-center gap-2.5 px-1 pt-2.5 pb-1">
           <Avatar name={user.name} size={38} />

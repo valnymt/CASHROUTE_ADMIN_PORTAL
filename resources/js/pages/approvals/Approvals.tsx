@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconSparkle } from '@/components/icons'
-import { Badge, Button, ChipGroup, ErrorBlock, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
+import { Badge, ChipGroup, ErrorBlock, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { fmtAge, fmtDay, fmtMoney, shortSlot } from '@/lib/format'
 import { api } from '@/services/api'
@@ -49,11 +49,6 @@ export default function Approvals() {
       <PageHeader
         title="Pending Requests"
         subtitle="Review and approve or reject requests created by Makers"
-        actions={
-          <Button variant="ghost" to="/requests/new">
-            + New Request
-          </Button>
-        }
       />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <SearchInput value={q} onChange={setQ} placeholder="Search request ID or branch…" className="sm:w-[320px]" />

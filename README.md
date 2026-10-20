@@ -131,8 +131,6 @@ vite.config.js             Vite + laravel-vite-plugin + React + Tailwind
 
 Also on every page:
 
-- ⌘K / Ctrl+K global search
-- Notifications
 - Live sidebar counts
 - Phone and tablet layout with a slide-in menu
 
