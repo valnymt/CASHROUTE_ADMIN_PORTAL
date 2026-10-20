@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconSparkle } from '@/components/icons'
+import RequestTimeline from '@/components/RequestTimeline'
 import { Avatar, Badge, Button, Card, Drawer, ErrorBlock, KeyValue, LoadingBlock, Modal, StatusBadge, Textarea } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import { fmtDate, fmtDateTime, fmtDay, fmtMoney, fmtTime } from '@/lib/format'
+import { fmtDate, fmtDateTime, fmtMoney } from '@/lib/format'
 import { api, ApiError } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi, useInvalidate } from '@/store/data'
@@ -159,7 +160,7 @@ export default function RequestDetail() {
               </span>
             }
           >
-            <Timeline request={r} />
+            <RequestTimeline request={r} />
           </Card>
         </div>
       </div>
@@ -167,37 +168,6 @@ export default function RequestDetail() {
       <RejectModal open={rejectOpen} request={r} onClose={() => setRejectOpen(false)} />
       <AssignDrawer open={assignOpen} request={r} teams={teams} users={users} onClose={() => setAssignOpen(false)} />
     </>
-  )
-}
-
-function Timeline({ request }: { request: CashRequest }) {
-  const items = [...request.timeline]
-  const done = !['Pending'].includes(request.status)
-  return (
-    <ol className="flex flex-col gap-3">
-      {items.map((t, i) => (
-        <li key={i} className="flex gap-2.5">
-          <span className={cn('mt-1 size-2.5 shrink-0 rounded-full', t.label.startsWith('Rejected') ? 'bg-danger' : 'bg-lime shadow-glow-lime')} />
-          <div className="leading-tight">
-            <p className="text-[13px] font-bold text-ink">{t.label}</p>
-            <p className="text-[11px] text-ink-60">
-              {i === 0 ? `${t.by} · ` : ''}
-              {fmtDay(t.at)} {fmtTime(t.at)}
-              {i > 0 && t.by !== items[0]!.by ? ` · ${t.by}` : ''}
-            </p>
-          </div>
-        </li>
-      ))}
-      {!done && (
-        <li className="flex gap-2.5">
-          <span className="mt-1 size-2.5 shrink-0 rounded-full bg-lime/50" />
-          <div className="leading-tight">
-            <p className="text-[13px] font-bold text-ink">Awaiting checker</p>
-            <p className="text-[11px] text-ink-60">—</p>
-          </div>
-        </li>
-      )}
-    </ol>
   )
 }
 

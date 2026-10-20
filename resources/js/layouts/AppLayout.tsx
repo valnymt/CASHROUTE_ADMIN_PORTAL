@@ -14,6 +14,8 @@ import Topbar from './Topbar'
 const META: { path: string; crumbs: string[]; title: string }[] = [
   { path: '/live/*', crumbs: ['Live Monitoring'], title: 'Live Monitoring' },
   { path: '/requests/new', crumbs: ['Operations', 'New Cash Request'], title: 'New Cash Request' },
+  { path: '/requests/:id', crumbs: ['Operations', 'All Requests', ':id'], title: 'Cash Requests' },
+  { path: '/requests', crumbs: ['Operations', 'All Requests'], title: 'Cash Requests' },
   { path: '/approvals/:id/*', crumbs: ['Operations', 'Approvals', ':id'], title: 'Approvals' },
   { path: '/approvals', crumbs: ['Operations', 'Approvals'], title: 'Approvals' },
   { path: '/branches/*', crumbs: ['Management', 'Branches'], title: 'Branches' },

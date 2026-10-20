@@ -9,6 +9,8 @@ const Branches = lazy(() => import('./pages/branches/Branches'))
 const UsersPage = lazy(() => import('./pages/users/Users'))
 const Teams = lazy(() => import('./pages/users/Teams'))
 const NewRequest = lazy(() => import('./pages/requests/NewRequest'))
+const Requests = lazy(() => import('./pages/requests/Requests'))
+const RequestShow = lazy(() => import('./pages/requests/RequestShow'))
 const Approvals = lazy(() => import('./pages/approvals/Approvals'))
 const RequestDetail = lazy(() => import('./pages/approvals/RequestDetail'))
 const AuditTrail = lazy(() => import('./pages/audit/AuditTrail'))
@@ -31,8 +33,10 @@ export default function AppRoutes() {
           <Route path="/live" element={<LiveMonitoring />} />
           <Route path="/live/stale-gps" element={<LiveMonitoring />} />
 
-          {/* AP-04/05 · New Cash Request */}
+          {/* AP-04/05 · New Cash Request, All Requests, Request summary */}
+          <Route path="/requests" element={<Requests />} />
           <Route path="/requests/new" element={<NewRequest />} />
+          <Route path="/requests/:id" element={<RequestShow />} />
 
           {/* AP-06 · Approvals, Request Detail, Maker-Checker guard; AP-07 · Reject / Assign */}
           <Route path="/approvals" element={<Approvals />} />

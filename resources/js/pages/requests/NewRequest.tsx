@@ -1,8 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, ErrorBlock, Input, KeyValue, LoadingBlock, PageHeader, Select, StatusBadge, Textarea } from '@/components/ui'
+import { Button, Card, ErrorBlock, Input, LoadingBlock, PageHeader, Select, Textarea } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import { fmtMoney, isoDay } from '@/lib/format'
+import { isoDay } from '@/lib/format'
 import { api, ApiError, type RequestInput } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi, useInvalidate } from '@/store/data'
@@ -81,7 +81,7 @@ export default function NewRequest() {
       const r = await api.requests.create(payload)
       invalidate()
       toast(`${r.id} submitted — a Checker has been notified.`)
-      navigate('/approvals')
+      navigate(`/requests/${r.id}`)
     } catch (err) {
       const ae = err as ApiError
       setErrors(ae.fields ?? {})
@@ -93,7 +93,15 @@ export default function NewRequest() {
 
   return (
     <>
-      <PageHeader title="Unified Request Creation" subtitle="Maker workspace — submitted requests go to a Checker for approval" />
+      <PageHeader
+        title="Unified Request Creation"
+        subtitle="Maker workspace — submitted requests go to a Checker for approval"
+        actions={
+          <Button variant="ghost" to="/requests">
+            View all requests
+          </Button>
+        }
+      />
 
       {!isMaker && (
         <div className="rounded-[18px] bg-amber-16 px-4 py-3 text-[12px] font-semibold text-amber">
@@ -101,76 +109,58 @@ export default function NewRequest() {
         </div>
       )}
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <Card title="Request details">
-          <form onSubmit={submit} className="grid gap-4" noValidate>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[12px] font-semibold text-ink-60">Direction</span>
-              <div role="radiogroup" aria-label="Direction" className="grid grid-cols-2 gap-1 rounded-[24px] bg-ink-6 p-1">
-                {(['Deposit', 'Withdrawal'] as Direction[]).map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    role="radio"
-                    aria-checked={form.type === d}
-                    onClick={() => set('type', d)}
-                    className={cn(
-                      'rounded-[20px] px-3 py-2.5 text-[12px] font-bold transition sm:text-[13px]',
-                      form.type === d ? 'bg-gradient-to-r from-violet to-violet-2 text-white shadow-violet' : 'text-ink-60 hover:text-ink',
-                    )}
-                  >
-                    {d}
-                    <span className="hidden font-semibold sm:inline">  {d === 'Deposit' ? '(Branch → HQ)' : '(HQ → Branch)'}</span>
-                  </button>
-                ))}
-              </div>
+      <Card title="Request details">
+        <form onSubmit={submit} className="grid gap-4" noValidate>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-semibold text-ink-60">Direction</span>
+            <div role="radiogroup" aria-label="Direction" className="grid grid-cols-2 gap-1 rounded-[24px] bg-ink-6 p-1">
+              {(['Deposit', 'Withdrawal'] as Direction[]).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  role="radio"
+                  aria-checked={form.type === d}
+                  onClick={() => set('type', d)}
+                  className={cn(
+                    'rounded-[20px] px-3 py-2.5 text-[12px] font-bold transition sm:text-[13px]',
+                    form.type === d ? 'bg-gradient-to-r from-violet to-violet-2 text-white shadow-violet' : 'text-ink-60 hover:text-ink',
+                  )}
+                >
+                  {d}
+                  <span className="hidden font-semibold sm:inline">  {d === 'Deposit' ? '(Branch → HQ)' : '(HQ → Branch)'}</span>
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Select label="Branch" value={form.branchId} onChange={(e) => set('branchId', e.target.value)} options={branchOptions} error={errors.branchId} />
-              <Input label="Pickup (auto)" value={pickup} readOnly tabIndex={-1} className="[&_input]:bg-ink-6" />
-              <Input label="Drop-off (auto)" value={dropoff} readOnly tabIndex={-1} className="[&_input]:bg-ink-6" />
-            </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Select label="Branch" value={form.branchId} onChange={(e) => set('branchId', e.target.value)} options={branchOptions} error={errors.branchId} />
+            <Input label="Pickup (auto)" value={pickup} readOnly tabIndex={-1} className="[&_input]:bg-ink-6" />
+            <Input label="Drop-off (auto)" value={dropoff} readOnly tabIndex={-1} className="[&_input]:bg-ink-6" />
+          </div>
 
-            <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
-              <Input label="Amount" inputMode="decimal" placeholder="0.00" value={form.amountText} onChange={(e) => onAmount(e.target.value)} error={errors.amount} required />
-              <Select label="Currency" value={form.currency} onChange={(e) => set('currency', e.target.value as Currency)} options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
-            </div>
+          <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
+            <Input label="Amount" inputMode="decimal" placeholder="0.00" value={form.amountText} onChange={(e) => onAmount(e.target.value)} error={errors.amount} required />
+            <Select label="Currency" value={form.currency} onChange={(e) => set('currency', e.target.value as Currency)} options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
+          </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="Requested date" type="date" min={isoDay(new Date())} value={form.date} onChange={(e) => set('date', e.target.value)} error={errors.date} />
-              <Select label="Time slot" value={form.slot} onChange={(e) => set('slot', e.target.value)} options={SLOTS.map((s) => ({ value: s, label: s }))} error={errors.slot} />
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input label="Requested date" type="date" min={isoDay(new Date())} value={form.date} onChange={(e) => set('date', e.target.value)} error={errors.date} />
+            <Select label="Time slot" value={form.slot} onChange={(e) => set('slot', e.target.value)} options={SLOTS.map((s) => ({ value: s, label: s }))} error={errors.slot} />
+          </div>
 
-            <Textarea label="Remarks" placeholder="Add any notes for the checker or delivery team…" value={form.remarks} maxLength={500} onChange={(e) => set('remarks', e.target.value)} />
+          <Textarea label="Remarks" placeholder="Add any notes for the checker or delivery team…" value={form.remarks} maxLength={500} onChange={(e) => set('remarks', e.target.value)} />
 
-            <div className="flex flex-wrap justify-end gap-3">
-              <Button variant="ghost" onClick={() => setForm(blank())}>
-                Cancel
-              </Button>
-              <Button type="submit" loading={busy} disabled={!isMaker}>
-                Submit for approval
-              </Button>
-            </div>
-          </form>
-        </Card>
-
-        <Card title="Request summary" className="lg:sticky lg:top-6">
-          <KeyValue
-            rows={[
-              ['Direction', form.type],
-              ['Pickup', pickup],
-              ['Drop-off', dropoff],
-              ['Amount', form.amount > 0 ? fmtMoney(form.amount, form.currency) : `${form.currency} —`],
-              ['Maker', `${user?.name} (you)`],
-              ['Status', <StatusBadge key="s" status="Pending" />],
-            ]}
-          />
-          <p className="mt-4 rounded-[16px] bg-amber-16 px-3.5 py-3 text-[11px] font-semibold text-amber">
-            Maker-Checker: you cannot approve a request you created.
-          </p>
-        </Card>
-      </div>
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button variant="ghost" onClick={() => setForm(blank())}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={busy} disabled={!isMaker}>
+              Submit for approval
+            </Button>
+          </div>
+        </form>
+      </Card>
     </>
   )
 }

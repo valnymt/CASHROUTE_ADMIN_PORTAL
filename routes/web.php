@@ -25,8 +25,10 @@ Route::view('/login', 'pages.auth.login')->name('login');
 Route::view('/live', 'pages.live.index')->name('live.index');
 Route::view('/live/stale-gps', 'pages.live.stale-gps')->name('live.stale-gps');
 
-// AP-04/05 · New Cash Request
+// AP-04/05 · Cash requests (Maker): list, create, summary
+Route::view('/requests', 'pages.requests.index')->name('requests.index');
 Route::view('/requests/new', 'pages.requests.create')->name('requests.create');
+Route::view('/requests/{id}', 'pages.requests.show')->name('requests.show');
 
 // AP-06 · Approvals  ·  AP-07 · Reject modal / Team assignment drawer
 Route::view('/approvals', 'pages.approvals.index')->name('approvals.index');

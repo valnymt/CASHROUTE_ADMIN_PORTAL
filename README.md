@@ -123,7 +123,8 @@ vite.config.js             Vite + laravel-vite-plugin + React + Tailwind
 | Branches / Add / Edit | `/branches`, `/branches/create`, `/branches/{id}/edit` | Search, filter, add/edit with validation, draggable map pin |
 | User Accounts / Add / Edit | `/users`, `/users/create`, `/users/{id}/edit` | Search, role filter, add/edit, unlock users |
 | Delivery Teams | `/teams` | Create teams, edit members, drag-and-drop members between teams |
-| New Cash Request | `/requests/new` | Deposit/Withdrawal, live summary, validation, submit |
+| New Cash Request | `/requests/new` | Deposit/Withdrawal, auto pickup/drop-off, validation, submit → opens the new request's summary |
+| All Requests / Request summary | `/requests`, `/requests/{id}` | Search, created-by and status filters; summary card with timeline |
 | Pending Approvals | `/approvals` | Pending / Approved / Rejected tabs, search |
 | Request Detail, Maker-Checker guard, Reject, Assign team | `/approvals/{id}`, `/approvals/{id}/reject`, `/approvals/{id}/assign` | Approve, reject with a required reason, assign an available team |
 | Audit Trail | `/audit` | Every action is logged; search, filter, event details |
