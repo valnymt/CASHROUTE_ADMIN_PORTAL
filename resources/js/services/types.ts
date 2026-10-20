@@ -20,7 +20,6 @@ export interface RequestInput {
   currency: Currency
   date: string
   slot: string
-  estimatedTimeline: string
   remarks: string
 }
 

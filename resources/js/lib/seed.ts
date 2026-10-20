@@ -146,7 +146,7 @@ export function createSeed(now = new Date()): Db {
     teamId: string,
     updatedMinsAgo: number,
   ): CashRequest => ({
-    id, type, branchId, amount, currency: 'MMK', date: day(0), slot: '08:00 – 10:00', remarks: '',
+    id, type, branchId, amount, currency: 'MMK', date: day(0), slot: 'Within 3 hours', remarks: '',
     createdBy: 'U-002', createdAt: minsAgo(updatedMinsAgo + 70), status, teamId, rejectReason: null,
     timeline: tl(
       ['Created', 'Priya Nair', minsAgo(updatedMinsAgo + 70)],
@@ -162,11 +162,11 @@ export function createSeed(now = new Date()): Db {
   })
 
   const requests: CashRequest[] = [
-    pending('REQ-1048', 'Deposit', 'BR-001', 250000, 1, '10:00 – 12:00', 'U-002', 20),
-    pending('REQ-1050', 'Withdrawal', 'BR-002', 120000, 1, '13:00 – 15:00', 'U-001', 45),
-    pending('REQ-1049', 'Deposit', 'BR-003', 80000, 1, '09:00 – 11:00', 'U-003', 60),
-    pending('REQ-1051', 'Withdrawal', 'BR-004', 300000, 2, '10:00 – 12:00', 'U-002', 120),
-    pending('REQ-1052', 'Deposit', 'BR-005', 95000, 2, '14:00 – 16:00', 'U-001', 180),
+    pending('REQ-1048', 'Deposit', 'BR-001', 250000, 1, 'Within 3 hours', 'U-002', 20),
+    pending('REQ-1050', 'Withdrawal', 'BR-002', 120000, 1, 'Within 5 hours', 'U-001', 45),
+    pending('REQ-1049', 'Deposit', 'BR-003', 80000, 1, 'Within 1 hour', 'U-003', 60),
+    pending('REQ-1051', 'Withdrawal', 'BR-004', 300000, 2, 'Within 1 day', 'U-002', 120),
+    pending('REQ-1052', 'Deposit', 'BR-005', 95000, 2, 'Within 2 days', 'U-001', 180),
     active('REQ-1042', 'Deposit', 'BR-001', 250000, 'In Transit', 'T-A', 1),
     active('REQ-1043', 'Deposit', 'BR-002', 180000, 'In Transit', 'T-B', 0),
     active('REQ-1045', 'Deposit', 'BR-003', 140000, 'In Transit', 'T-C', 3),

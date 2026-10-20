@@ -9,7 +9,7 @@ import { ApiError, type Api, type BranchInput, type RequestInput, type UserInput
  * network call, so loading states are exercised.
  */
 
-const STORAGE_KEY = 'cashroute.mockdb.v2'
+const STORAGE_KEY = 'cashroute.mockdb.v3'
 const MAX_ATTEMPTS = 5
 const LATENCY = 180
 
@@ -87,7 +87,7 @@ function validateRequest(data: RequestInput) {
   if (!db.branches.some((b) => b.id === data.branchId && b.active)) fields.branchId = 'Select an active branch.'
   if (!(data.amount > 0)) fields.amount = 'Enter an amount greater than 0.'
   if (!data.date) fields.date = 'Pick a date.'
-  if (!data.slot) fields.slot = 'Pick a time slot.'
+  if (!data.slot) fields.slot = 'Choose how soon the team must finish.'
   if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
 }
 

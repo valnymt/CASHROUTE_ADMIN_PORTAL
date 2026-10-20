@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { IconSparkle } from '@/components/icons'
 import { Badge, ChipGroup, ErrorBlock, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
-import { fmtAge, fmtDay, fmtMoney, shortSlot } from '@/lib/format'
+import { fmtAge, fmtDay, fmtMoney } from '@/lib/format'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi } from '@/store/data'
@@ -80,7 +80,7 @@ export default function Approvals() {
             { header: 'Type', cell: (r) => <Badge tone={r.type === 'Deposit' ? 'periwinkle' : 'neutral'}>{r.type}</Badge> },
             { header: 'Branch', cell: (r) => branchShort(r.branchId) },
             { header: 'Amount', cell: (r) => fmtMoney(r.amount, r.currency) },
-            { header: 'Time slot', cell: (r) => `${fmtDay(r.date)} · ${shortSlot(r.slot)}` },
+            { header: 'Requested for', cell: (r) => `${fmtDay(r.date)} · ${r.slot}` },
             { header: 'Created by', cell: (r) => creator(r.createdBy) },
             { header: 'Age', cell: (r) => fmtAge(r.createdAt), hideOnMobile: true },
             { header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },

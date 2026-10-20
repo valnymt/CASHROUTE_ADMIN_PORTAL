@@ -85,8 +85,16 @@ export function initials(name: string) {
     .join('')
 }
 
-/** Split a time-slot "10:00 – 12:00" into the short "10–12" used in tables. */
-export function shortSlot(slot: string) {
-  const m = slot.match(/^(\d{2}):\d{2}\s*–\s*(\d{2}):\d{2}$/)
-  return m ? `${m[1]}–${m[2]}` : slot
-}
+/** How soon the delivery team must finish a request ("Complete within" dropdown). */
+export const COMPLETION_WINDOWS = [
+  'Within 1 hour',
+  'Within 3 hours',
+  'Within 5 hours',
+  'Within 10 hours',
+  'Within 12 hours',
+  'Within 1 day',
+  'Within 2 days',
+] as const
+
+/** Dropdown label — the longest windows are meant for long-distance drives. */
+export const completionLabel = (w: string) => (w === 'Within 2 days' ? 'Within 2 days (long drive)' : w)
