@@ -82,46 +82,55 @@ export default function Teams() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {teams.map((t) => (
-          <Card
-            key={t.id}
-            padded={false}
-            className={cn('flex flex-col p-4 transition', dropTarget === t.id && 'ring-4 ring-violet/30')}
-          >
-            <div {...dropProps(t.id, (id) => moveTo(id, t))} className="flex flex-1 flex-col">
-              <p className="text-[16px] font-bold text-ink">{t.name}</p>
-              <div className="mt-1 mb-3 flex items-center justify-between">
-                <span className="text-[11px] text-ink-60">
-                  {teamMix(t.memberIds, users).drivers}/{TEAM_MIN.Driver} driver · {teamMix(t.memberIds, users).custodians}/{TEAM_MIN.Custodian} custodians
-                </span>
-                {t.confirmed ? (
-                  <Badge tone={t.status === 'On trip' ? 'violet' : 'lime'}>{t.status}</Badge>
+        {teams.map((t) => {
+          // A team out on a delivery is locked: no drag in/out, no remove, no edit.
+          const locked = t.status === 'On trip'
+          return (
+            <Card key={t.id} padded={false} className={cn('flex flex-col p-4 transition', dropTarget === t.id && 'ring-4 ring-violet/30')}>
+              <div {...(locked ? {} : dropProps(t.id, (id) => moveTo(id, t)))} className="flex flex-1 flex-col">
+                <p className="text-[16px] font-bold text-ink">{t.name}</p>
+                <div className="mt-1 mb-3 flex items-center justify-between">
+                  <span className="text-[11px] text-ink-60">
+                    {teamMix(t.memberIds, users).drivers}/{TEAM_MIN.Driver} driver · {teamMix(t.memberIds, users).custodians}/
+                    {TEAM_MIN.Custodian} custodians
+                  </span>
+                  {t.confirmed ? (
+                    <Badge tone={t.status === 'On trip' ? 'violet' : 'lime'}>{t.status}</Badge>
+                  ) : (
+                    <Badge tone="amber">Draft</Badge>
+                  )}
+                </div>
+                <ul className="flex flex-1 flex-col gap-2">
+                  {t.memberIds.length === 0 && (
+                    <li className="rounded-[16px] border border-dashed border-ink-9 px-3 py-4 text-center text-[12px] text-ink-38">
+                      Drop members here
+                    </li>
+                  )}
+                  {t.memberIds.map((id) => {
+                    const u = byId(id)
+                    return u ? <MemberRow key={id} user={u} onRemove={locked ? undefined : () => removeFrom(id, t)} /> : null
+                  })}
+                </ul>
+                {locked ? (
+                  <p className="mt-3 rounded-[16px] bg-periwinkle-18 px-3 py-2.5 text-center text-[11px] font-semibold text-plum">
+                    On a delivery — editing unlocks when the trip ends
+                  </p>
                 ) : (
-                  <Badge tone="amber">Draft</Badge>
+                  <>
+                    {!t.confirmed && (
+                      <Button size="sm" className="mt-3 w-full !py-2.5" onClick={() => confirmTeam(t)}>
+                        Confirm team
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" className="mt-2 w-full !py-2.5" onClick={() => setEditing(t)}>
+                      Edit members
+                    </Button>
+                  </>
                 )}
               </div>
-              <ul className="flex flex-1 flex-col gap-2">
-                {t.memberIds.length === 0 && (
-                  <li className="rounded-[16px] border border-dashed border-ink-9 px-3 py-4 text-center text-[12px] text-ink-38">
-                    Drop members here
-                  </li>
-                )}
-                {t.memberIds.map((id) => {
-                  const u = byId(id)
-                  return u ? <MemberRow key={id} user={u} onRemove={() => removeFrom(id, t)} /> : null
-                })}
-              </ul>
-              {!t.confirmed && (
-                <Button size="sm" className="mt-3 w-full !py-2.5" onClick={() => confirmTeam(t)}>
-                  Confirm team
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" className="mt-2 w-full !py-2.5" onClick={() => setEditing(t)}>
-                Edit members
-              </Button>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          )
+        })}
 
         <Card padded={false} className={cn('p-4 transition', dropTarget === 'none' && 'ring-4 ring-violet/30')}>
           <div
@@ -132,7 +141,8 @@ export default function Teams() {
           >
             <p className="text-[16px] font-bold text-ink">Unassigned members · {unassigned.length}</p>
             <p className="mt-1 mb-3 text-[11px] text-ink-60">Drag or add into a team</p>
-            <ul className="-mr-2 flex max-h-[360px] flex-col gap-1 overflow-y-auto pr-2">
+            {/* Shows 5 people (5 × 46px rows + gaps); the rest scroll. */}
+            <ul className="-mr-2 flex max-h-[246px] flex-col gap-1 overflow-y-auto pr-2">
               {unassigned.length === 0 && <li className="py-4 text-center text-[12px] text-ink-38">Everyone is in a team.</li>}
               {unassigned.map((u) => (
                 <li
@@ -168,11 +178,12 @@ export default function Teams() {
             <li key={t.id}>
               <button
                 type="button"
+                disabled={t.status === 'On trip'}
                 onClick={async () => {
                   if (addFor) await moveTo(addFor.id, t)
                   setAddFor(null)
                 }}
-                className="flex w-full items-center justify-between rounded-[18px] bg-white/70 px-4 py-3 text-left hover:bg-white"
+                className="flex w-full items-center justify-between rounded-[18px] bg-white/70 px-4 py-3 text-left hover:bg-white disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white/70"
               >
                 <span>
                   <span className="block text-[14px] font-bold text-ink">{t.name}</span>
@@ -190,12 +201,13 @@ export default function Teams() {
   )
 }
 
-function MemberRow({ user, onRemove }: { user: User; onRemove: () => void }) {
+/** `onRemove` omitted = locked (team on a trip): not draggable, no remove button. */
+function MemberRow({ user, onRemove }: { user: User; onRemove?: () => void }) {
   return (
     <li
-      draggable
+      draggable={!!onRemove}
       onDragStart={(e) => e.dataTransfer.setData('text/user-id', user.id)}
-      className="group flex cursor-grab items-center justify-between gap-2 rounded-[16px] bg-ink-6 px-2.5 py-2"
+      className={cn('group flex items-center justify-between gap-2 rounded-[16px] bg-ink-6 px-2.5 py-2', onRemove && 'cursor-grab')}
     >
       <span className="flex min-w-0 items-center gap-2.5">
         <Avatar name={user.name} size={30} />
@@ -204,14 +216,16 @@ function MemberRow({ user, onRemove }: { user: User; onRemove: () => void }) {
           <span className="block text-[10px] text-ink-60">{user.role}</span>
         </span>
       </span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${user.name}`}
-        className="text-[11px] font-bold text-ink-38 opacity-100 hover:text-danger sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
-      >
-        ✕
-      </button>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${user.name}`}
+          className="text-[11px] font-bold text-ink-38 opacity-100 hover:text-danger sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+        >
+          ✕
+        </button>
+      )}
     </li>
   )
 }

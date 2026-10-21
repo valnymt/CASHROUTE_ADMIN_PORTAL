@@ -265,6 +265,7 @@ export const mockApi: Api = {
       respond(() => {
         const t = db.teams.find((x) => x.id === id)
         if (!t) throw new ApiError('Team not found.', 'not_found', 404)
+        if (t.status === 'On trip') throw new ApiError(`${t.name} is on a delivery and can't be edited until the trip ends.`, 'conflict', 409)
         if (!name.trim()) throw new ApiError('Team name is required.', 'validation', 422, { name: 'Team name is required.' })
         checkTeamRule(memberIds, confirmed)
         t.name = name.trim()
