@@ -1,0 +1,15 @@
+# This folder lives inside XAMPP's htdocs, so Apache can see all of it.
+# Only the built app in dist/ should be reachable from the browser.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # http://localhost/CashRoute/CashRoute_Admin_Portal/  ->  the built app
+    RewriteRule ^$ %{REQUEST_URI}dist/ [R=302,L]
+
+    # Never serve source code, packages or config files.
+    RewriteRule ^(src|node_modules|\.git)(/|$) - [F,L]
+    RewriteRule (^|/)\. - [F,L]
+    RewriteRule ^(package(-lock)?\.json|tsconfig\.json|vite\.config\.ts|README\.md|index\.html)$ - [F,L]
+</IfModule>

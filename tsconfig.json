@@ -13,8 +13,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["resources/js/*"] },
-    "types": ["vite/client"]
+    "paths": { "@/*": ["src/*"] },
+    "types": ["vite/client", "node"]
   },
-  "include": ["resources/js"]
+  "include": ["src", "vite.config.ts"]
 }
