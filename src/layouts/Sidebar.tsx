@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { ComponentType, SVGProps } from 'react'
 import Logo from '@/components/Logo'
-import { IconBuilding, IconChart, IconCheckCircle, IconDoc, IconPin, IconPlus, IconUsers, IconX } from '@/components/icons'
+import { IconBuilding, IconChart, IconHistory, IconCheckCircle, IconDoc, IconPin, IconPlus, IconUsers, IconX } from '@/components/icons'
 import { Avatar, IconButton } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { api } from '@/services/api'
@@ -16,6 +16,8 @@ interface NavItem {
   count?: number
   countTone?: 'lime' | 'violet'
   match?: string[]
+  /** Only light up on this exact path, not its sub-pages. */
+  end?: boolean
 }
 
 export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onClose?: () => void }) {
@@ -49,7 +51,9 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
       heading: 'INSIGHTS',
       items: [
         { to: '/audit', label: 'Audit Trail', Icon: IconDoc },
-        { to: '/reports', label: 'Reports', Icon: IconChart },
+        { to: '/reports', label: 'Reports', Icon: IconChart, end: true },
+        // Trip detail pages (/reports/{id}) are opened from here, so keep this item lit on them.
+        { to: '/history', label: 'Trip History', Icon: IconHistory, match: ['/history', '/reports/'] },
       ],
     },
   ]
@@ -73,10 +77,11 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
       {sections.map((s) => (
         <div key={s.heading} className="flex flex-col gap-[3px]">
           <p className="px-2 pt-3 pb-1 text-[10px] font-bold text-ink-38">{s.heading}</p>
-          {s.items.map(({ to, label, Icon, count, countTone, match }) => (
+          {s.items.map(({ to, label, Icon, count, countTone, match, end }) => (
             <NavLink
               key={to}
               to={to}
+              end={end}
               onClick={onNavigate}
               className={({ isActive }) => {
                 const active = isActive || match?.some((m) => pathname.startsWith(m))

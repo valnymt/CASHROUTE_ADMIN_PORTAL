@@ -1,15 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { IconDownload } from '@/components/icons'
-import { Badge, Button, Card, ErrorBlock, LoadingBlock, PageHeader, Select } from '@/components/ui'
-import { DataTable, RowLink } from '@/components/ui/DataTable'
+import { Button, Card, ErrorBlock, LoadingBlock, PageHeader, Select } from '@/components/ui'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { cn } from '@/lib/cn'
 import { exportCsv, exportExcel } from '@/lib/export'
-import { fmtDate, fmtMoney, fmtMoneyShort, isoDay } from '@/lib/format'
+import { fmtMoney, fmtMoneyShort, isoDay } from '@/lib/format'
 import { api } from '@/services/api'
 import { useApi } from '@/store/data'
-import type { Trip } from '@/types'
 
 interface Filters {
   from: string
@@ -20,7 +17,6 @@ interface Filters {
   team: string
 }
 
-const PAGE = 8
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function defaultFilters(): Filters {
@@ -39,15 +35,13 @@ function isoWeek(d: Date) {
   return Math.ceil(((t.getTime() - y0.getTime()) / 86400000 + 1) / 7)
 }
 
-/** AP-10 · Trip History, Reports & Analytics. */
+/** AP-10 · Reports & Analytics (the trip log itself lives on Trip History). */
 export default function Reports() {
-  const navigate = useNavigate()
   const { data: trips, error, reload } = useApi(() => api.trips.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
   const [draft, setDraft] = useState<Filters>(defaultFilters)
   const [applied, setApplied] = useState<Filters>(draft)
-  const [page, setPage] = useState(0)
 
   const branchName = (id: string) => branches?.find((b) => b.id === id)?.name.replace(' Branch', '') ?? id
   const teamName = (id: string) => teams?.find((t) => t.id === id)?.name ?? id
@@ -104,8 +98,6 @@ export default function Reports() {
   if (!trips || !branches || !teams) return <LoadingBlock />
 
   const currency = rows[0]?.currency ?? 'MMK'
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE))
-  const pageRows = rows.slice(page * PAGE, page * PAGE + PAGE)
 
   const exportData = (): [string[], (string | number)[][]] => [
     ['Request', 'Date', 'Branch', 'Type', 'Team', 'Currency', 'Amount', 'Duration (min)', 'Result'],
@@ -118,8 +110,8 @@ export default function Reports() {
   return (
     <>
       <PageHeader
-        title="Trip History, Reports & Analytics"
-        subtitle="Filter, review and export"
+        title="Reports & Analytics"
+        subtitle="Filter, review and export. The full trip log is under Trip History."
         actions={
           <>
             <Button variant="ghost" onClick={() => exportCsv(`${fileBase}.csv`, ...exportData())} disabled={!rows.length}>
@@ -138,7 +130,6 @@ export default function Reports() {
           onSubmit={(e) => {
             e.preventDefault()
             setApplied(draft)
-            setPage(0)
           }}
         >
           {/* Full row until xl so the dates ("21 Oct 2026") aren't cut off. */}
@@ -160,7 +151,6 @@ export default function Reports() {
                 const d = defaultFilters()
                 setDraft(d)
                 setApplied(d)
-                setPage(0)
               }}
             >
               Reset
@@ -211,39 +201,6 @@ export default function Reports() {
         </Card>
       </div>
 
-      <DataTable
-        rows={pageRows}
-        rowKey={(t: Trip) => t.id}
-        onRowClick={(t) => navigate(`/reports/${t.id}`)}
-        empty="No trips in this period."
-        columns={[
-          { header: 'Request', cell: (t) => <span className="font-bold">{t.id}</span>, primary: true },
-          { header: 'Date', cell: (t) => fmtDate(t.date) },
-          { header: 'Branch', cell: (t) => branchName(t.branchId) },
-          { header: 'Type', cell: (t) => <Badge tone={t.type === 'Deposit' ? 'periwinkle' : 'neutral'}>{t.type}</Badge> },
-          { header: 'Team', cell: (t) => teamName(t.teamId) },
-          { header: 'Amount', cell: (t) => fmtMoney(t.amount, t.currency) },
-          { header: 'Duration', cell: (t) => `${t.durationMin} min` },
-          { header: 'Result', cell: (t) => <Badge tone={t.onTime ? 'lime' : 'danger'}>{t.onTime ? 'On time' : 'Late'}</Badge> },
-        ]}
-        action={(t) => <RowLink onClick={() => navigate(`/reports/${t.id}`)}>Details ›</RowLink>}
-      />
-
-      {rows.length > PAGE && (
-        <div className="flex items-center justify-between gap-3 text-[12px] text-ink-60">
-          <span>
-            {page * PAGE + 1}–{Math.min(rows.length, (page + 1) * PAGE)} of {rows.length} trips
-          </span>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-              ‹ Prev
-            </Button>
-            <Button variant="ghost" size="sm" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>
-              Next ›
-            </Button>
-          </div>
-        </div>
-      )}
     </>
   )
 }

@@ -24,6 +24,7 @@ export function DataTable<T>({
   rowClassName,
   action,
   empty = 'No records match your filters.',
+  maxHeight,
 }: {
   columns: Column<T>[]
   rows: T[]
@@ -33,6 +34,8 @@ export function DataTable<T>({
   /** Trailing action cell, e.g. "Edit ›". */
   action?: (row: T) => ReactNode
   empty?: string
+  /** CSS height cap (e.g. "calc(100dvh - 260px)"): the rows scroll inside the card and the header stays put. */
+  maxHeight?: string
 }) {
   const primary = columns.find((c) => c.primary) ?? columns[0]!
   const rest = columns.filter((c) => c !== primary && !c.hideOnMobile)
@@ -44,19 +47,23 @@ export function DataTable<T>({
       ) : (
         <>
           {/* md+ : table */}
-          <div className="hidden overflow-x-auto md:block">
+          <div className={cn('hidden overflow-x-auto md:block', maxHeight && 'overflow-y-auto')} style={maxHeight ? { maxHeight } : undefined}>
             <table className="w-full border-collapse">
               <thead>
                 <tr>
                   {columns.map((c, i) => (
                     <th
                       key={i}
-                      className={cn('px-[18px] py-2.5 text-left text-[10px] font-bold tracking-wide whitespace-nowrap text-ink-60 uppercase xl:px-[22px]', c.className)}
+                      className={cn(
+                        'px-[18px] py-2.5 text-left text-[10px] font-bold tracking-wide whitespace-nowrap text-ink-60 uppercase xl:px-[22px]',
+                        maxHeight && 'sticky top-0 z-10 bg-white/95 backdrop-blur',
+                        c.className,
+                      )}
                     >
                       {c.header}
                     </th>
                   ))}
-                  {action && <th className="w-px" />}
+                  {action && <th className={cn('w-px', maxHeight && 'sticky top-0 z-10 bg-white/95 backdrop-blur')} />}
                 </tr>
               </thead>
               <tbody>
@@ -87,7 +94,7 @@ export function DataTable<T>({
           </div>
 
           {/* phones : stacked cards */}
-          <ul className="flex flex-col gap-2 md:hidden">
+          <ul className={cn('flex flex-col gap-2 md:hidden', maxHeight && 'overflow-y-auto')} style={maxHeight ? { maxHeight } : undefined}>
             {rows.map((row) => (
               <li
                 key={rowKey(row)}

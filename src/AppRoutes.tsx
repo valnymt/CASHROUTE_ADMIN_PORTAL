@@ -16,6 +16,7 @@ const RequestDetail = lazy(() => import('./pages/approvals/RequestDetail'))
 const AuditTrail = lazy(() => import('./pages/audit/AuditTrail'))
 const Reports = lazy(() => import('./pages/reports/Reports'))
 const ReportDetail = lazy(() => import('./pages/reports/ReportDetail'))
+const History = lazy(() => import('./pages/reports/History'))
 const ChangePassword = lazy(() => import('./pages/auth/ChangePassword'))
 
 /**
@@ -63,6 +64,7 @@ export default function AppRoutes() {
           {/* AP-10 · Reports / Request Detail (history) */}
           <Route path="/reports" element={<Reports />} />
           <Route path="/reports/:id" element={<ReportDetail />} />
+          <Route path="/history" element={<History />} />
 
           {/* Account · change own password */}
           <Route path="/account/password" element={<ChangePassword />} />

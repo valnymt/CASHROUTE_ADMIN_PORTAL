@@ -23,8 +23,8 @@ export default function ReportDetail() {
       <Card className="text-center">
         <p className="py-6 text-[14px] font-bold text-ink">No completed trip found for {id.toUpperCase()}.</p>
         <p className="mb-5 text-[12px] text-ink-60">It may still be in progress — check Approvals or Live Monitoring.</p>
-        <Button variant="ghost" size="sm" to="/reports">
-          ← Back to reports
+        <Button variant="ghost" size="sm" to="/history">
+          ← Back to trip history
         </Button>
       </Card>
     )
@@ -42,8 +42,8 @@ export default function ReportDetail() {
             Completed {fmtDate(trip.date)} · {h.team}
           </p>
         </div>
-        <Button variant="ghost" size="sm" className="!py-2.5" to="/reports">
-          <IconArrowLeft className="size-4" /> Back to reports
+        <Button variant="ghost" size="sm" className="!py-2.5" to="/history">
+          <IconArrowLeft className="size-4" /> Back to trip history
         </Button>
       </div>
 

@@ -23,7 +23,8 @@ const META: { path: string; crumbs: string[]; title: string }[] = [
   { path: '/users/*', crumbs: ['Management', 'Users & Teams'], title: 'Users & Teams' },
   { path: '/teams', crumbs: ['Management', 'Users & Teams', 'Teams'], title: 'Users & Teams' },
   { path: '/audit', crumbs: ['Insights', 'Audit Trail'], title: 'Audit Trail' },
-  { path: '/reports/:id', crumbs: ['Insights', 'Reports', ':id'], title: 'Reports' },
+  { path: '/reports/:id', crumbs: ['Insights', 'Trip History', ':id'], title: 'Trip History' },
+  { path: '/history', crumbs: ['Insights', 'Trip History'], title: 'Trip History' },
   { path: '/reports', crumbs: ['Insights', 'Reports'], title: 'Reports' },
   { path: '/account/password', crumbs: ['Account', 'Change password'], title: 'Account' },
 ]
