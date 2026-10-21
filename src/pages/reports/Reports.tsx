@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconDownload } from '@/components/icons'
-import { Badge, Button, Card, ErrorBlock, Input, LoadingBlock, PageHeader, Select } from '@/components/ui'
+import { Badge, Button, Card, ErrorBlock, LoadingBlock, PageHeader, Select } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { cn } from '@/lib/cn'
 import { exportCsv, exportExcel } from '@/lib/export'
 import { fmtDate, fmtMoney, fmtMoneyShort, isoDay } from '@/lib/format'
@@ -140,9 +141,10 @@ export default function Reports() {
             setPage(0)
           }}
         >
-          <div className="grid grid-cols-2 gap-2">
-            <Input label="From" type="date" value={draft.from} max={draft.to} onChange={(e) => setF('from', e.target.value)} />
-            <Input label="To" type="date" value={draft.to} min={draft.from} onChange={(e) => setF('to', e.target.value)} />
+          {/* Full row until xl so the dates ("21 Oct 2026") aren't cut off. */}
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2 xl:col-span-1">
+            <DatePicker label="From" placeholder="Start date" value={draft.from} max={draft.to} onChange={(v) => setF('from', v)} rangeStart={draft.from} rangeEnd={draft.to} clearable={false} />
+            <DatePicker label="To" placeholder="End date" value={draft.to} min={draft.from} onChange={(v) => setF('to', v)} rangeStart={draft.from} rangeEnd={draft.to} clearable={false} align="right" />
           </div>
           <Select label="Branch" value={draft.branch} onChange={(e) => setF('branch', e.target.value)} placeholder="All branches" options={branches.filter((b) => b.type === 'Branch').map((b) => ({ value: b.id, label: b.name }))} />
           <Select label="Type" value={draft.type} onChange={(e) => setF('type', e.target.value)} placeholder="All types" options={[{ value: 'Deposit', label: 'Deposit' }, { value: 'Withdrawal', label: 'Withdrawal' }]} />

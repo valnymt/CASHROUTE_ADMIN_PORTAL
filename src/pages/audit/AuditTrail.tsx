@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { IconSparkle } from '@/components/icons'
-import { Badge, Card, ChipGroup, ErrorBlock, KeyValue, LoadingBlock, Modal, PageHeader, SearchInput, statusTone } from '@/components/ui'
+import { Badge, Card, ErrorBlock, FilterDropdown, KeyValue, LoadingBlock, Modal, PageHeader, SearchInput, statusTone } from '@/components/ui'
 import { DataTable } from '@/components/ui/DataTable'
-import { fmtDay, fmtIsoLocal, fmtTimeSec } from '@/lib/format'
+import { DatePicker } from '@/components/ui/DatePicker'
+import { fmtDay, fmtIsoLocal, fmtTimeSec, isoDay } from '@/lib/format'
 import { api } from '@/services/api'
 import { useApi } from '@/store/data'
 import type { AuditEvent, AuditLog, User } from '@/types'
@@ -17,6 +18,9 @@ export default function AuditTrail() {
   const { data: users } = useApi(() => api.users.list())
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  // Date range (YYYY-MM-DD, local day); empty = no limit.
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -27,9 +31,13 @@ export default function AuditTrail() {
     return [...(logs ?? [])]
       .sort((a, b) => b.at.localeCompare(a.at))
       .filter((l) => filter === 'all' || (filter === 'App trip' ? APP_TRIP.includes(l.event) : l.event === filter))
-      .filter((l) => !s || `${l.event} ${l.requestId} ${userName(l.userId)} ${l.source}`.toLowerCase().includes(s))
+      .filter((l) => {
+        const day = isoDay(new Date(l.at))
+        return (!from || day >= from) && (!to || day <= to)
+      })
+      .filter((l) => !s || `${l.event} ${l.requestId} ${userName(l.userId)}`.toLowerCase().includes(s))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logs, q, filter, users])
+  }, [logs, q, filter, from, to, users])
 
   const selected = rows.find((l) => l.id === selectedId) ?? rows.find((l) => l.requestId === 'REQ-1042') ?? rows[0]
 
@@ -46,21 +54,26 @@ export default function AuditTrail() {
       />
       <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
         <SearchInput value={q} onChange={setQ} placeholder="Search user, request, event…" className="xl:w-[300px]" />
-        <ChipGroup
+        <FilterDropdown
           label="Event type"
           value={filter}
           onChange={setFilter}
+          defaultValue="all"
           options={[
             { value: 'all', label: 'All events' },
             { value: 'Create', label: 'Create' },
             { value: 'Approve', label: 'Approve' },
             { value: 'Reject', label: 'Reject' },
             { value: 'Assign', label: 'Assign' },
-            { value: 'Edit', label: 'Edit' },
             { value: 'Cancel', label: 'Cancel' },
             { value: 'App trip', label: 'App trip' },
           ]}
         />
+        <div className="flex items-center gap-2">
+          <DatePicker placeholder="From date" value={from} onChange={setFrom} max={to || undefined} rangeStart={from} rangeEnd={to} />
+          <span className="text-[12px] text-ink-60">to</span>
+          <DatePicker placeholder="To date" value={to} onChange={setTo} min={from || undefined} rangeStart={from} rangeEnd={to} />
+        </div>
       </div>
 
       {error ? (
@@ -82,7 +95,6 @@ export default function AuditTrail() {
               { header: 'Event', cell: (l) => <EventBadge event={l.event} /> },
               { header: 'Request', cell: (l) => l.requestId },
               { header: 'User', cell: (l) => userName(l.userId) },
-              { header: 'Source', cell: (l) => l.source },
             ]}
           />
           <div className="hidden lg:block">{selected && <Details log={selected} users={users ?? []} />}</div>
@@ -120,11 +132,10 @@ function DetailsBody({ log, users }: { log: AuditLog; users: User[] }) {
           ['User ID', `${log.userId} · ${u?.name ?? ''}`],
           ['Timestamp', fmtIsoLocal(log.at)],
           ['GPS stamp', log.gps ?? '—'],
-          ['Source', log.source],
         ]}
       />
-      <Link to={`/reports/${log.requestId}`} className="mt-4 inline-block text-[13px] font-bold text-violet hover:underline">
-        View request history ›
+      <Link to={`/requests/${log.requestId}`} className="mt-4 inline-block text-[13px] font-bold text-violet hover:underline">
+        View details ›
       </Link>
       <p className="mt-4 rounded-[16px] bg-ink-6 px-3.5 py-3 text-[11px] text-ink-60">
         Read-only view: there are no edit or delete actions anywhere on this screen.
