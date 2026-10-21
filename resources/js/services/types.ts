@@ -68,7 +68,7 @@ export interface Api {
     create(data: RequestInput): Promise<CashRequest>
     /** Maker edits their own request while it is still Pending. */
     update(id: string, data: RequestInput): Promise<CashRequest>
-    /** Maker withdraws their own request while it is still Pending. */
+    /** Maker withdraws their own Pending request, or a Checker cancels an Approved/Assigned one (reason required). */
     cancel(id: string, reason: string): Promise<CashRequest>
     approve(id: string): Promise<CashRequest>
     reject(id: string, reason: string): Promise<CashRequest>

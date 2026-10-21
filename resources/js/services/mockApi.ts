@@ -283,11 +283,27 @@ export const mockApi: Api = {
     cancel: (id, reason) =>
       respond(() => {
         const me = currentUser()
-        const r = ownPendingRequest(id, me, 'cancel')
+        const r = findRequest(id)
+        // Maker: withdraw their own request while it's Pending (reason optional).
+        // Checker: cancel an approved request before the team leaves (reason required).
+        const byChecker = r.status === 'Approved' || r.status === 'Assigned'
+        if (byChecker) {
+          if (!canCheck(me)) throw new ApiError('Only Checkers can cancel an approved request.', 'forbidden', 403)
+          if (!reason.trim())
+            throw new ApiError('A reason is required.', 'validation', 422, { reason: 'Enter why this approved request is being cancelled.' })
+          const team = db.teams.find((t) => t.id === r.teamId)
+          if (team && team.currentRequestId === r.id) {
+            team.status = 'Available'
+            team.currentRequestId = null
+          }
+        } else {
+          ownPendingRequest(id, me, 'cancel')
+        }
         r.status = 'Cancelled'
         r.cancelReason = reason.trim() || null
+        const who = byChecker ? 'Checker' : 'Maker'
         r.timeline.push({
-          label: reason.trim() ? `Cancelled by Maker — ${reason.trim()}` : 'Cancelled by Maker',
+          label: reason.trim() ? `Cancelled by ${who} — ${reason.trim()}` : `Cancelled by ${who}`,
           by: me.name,
           at: new Date().toISOString(),
         })

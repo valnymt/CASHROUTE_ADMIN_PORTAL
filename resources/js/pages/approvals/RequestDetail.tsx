@@ -33,6 +33,7 @@ export default function RequestDetail() {
   const setRejectOpen = (open: boolean) => navigate(open ? `/approvals/${id}/reject` : `/approvals/${id}`)
   const setAssignOpen = (open: boolean) => navigate(open ? `/approvals/${id}/assign` : `/approvals/${id}`)
   const [busy, setBusy] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   if (error)
     return (
@@ -53,6 +54,15 @@ export default function RequestDetail() {
   const mine = r.createdBy === user?.id
   const team = teams.find((t) => t.id === r.teamId)
   const canAct = r.status === 'Pending' && !mine && isChecker
+  // A Checker can still call off an approved request until the team is on the road.
+  const canCancel = isChecker && (r.status === 'Approved' || r.status === 'Assigned')
+
+  // After a reject or cancel there's nothing left to do here — go back to the queue.
+  const finish = (message: string) => {
+    invalidate()
+    toast(message, 'info')
+    navigate('/approvals', { replace: true })
+  }
 
   const approve = async () => {
     setBusy(true)
@@ -97,6 +107,7 @@ export default function RequestDetail() {
               ['Created at', fmtDateTime(r.createdAt)],
               ...(team ? ([['Delivery team', team.name]] as [string, string][]) : []),
               ...(r.rejectReason ? ([['Reject reason', r.rejectReason]] as [string, string][]) : []),
+              ...(r.cancelReason ? ([['Cancel reason', r.cancelReason]] as [string, string][]) : []),
             ]}
           />
         </Card>
@@ -147,6 +158,11 @@ export default function RequestDetail() {
                 Track on live map
               </Button>
             )}
+            {canCancel && (
+              <Button variant="danger-soft" className="mt-3 w-full" onClick={() => setCancelOpen(true)}>
+                Cancel request
+              </Button>
+            )}
             {r.status === 'Delivered' && (
               <Button variant="ghost" className="mt-4 w-full" to={`/reports/${r.id}`}>
                 View trip history
@@ -166,19 +182,67 @@ export default function RequestDetail() {
         </div>
       </div>
 
-      <RejectModal open={rejectOpen} request={r} onClose={() => setRejectOpen(false)} />
+      <ReasonModal
+        open={rejectOpen}
+        onClose={() => setRejectOpen(false)}
+        title={`Reject ${r.id}`}
+        subtitle="The Maker will be notified. A reason is required."
+        label="Reason for rejection"
+        placeholder="Explain why this request is being rejected…"
+        confirmLabel="Confirm reject"
+        onConfirm={async (reason) => {
+          await api.requests.reject(r.id, reason)
+          finish(`${r.id} rejected — the Maker has been notified.`)
+        }}
+      />
+      <ReasonModal
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        title={`Cancel ${r.id}?`}
+        subtitle={
+          team
+            ? `The approval is withdrawn and ${team.name} is released for other trips. A reason is required.`
+            : 'The approval is withdrawn and the request will not be delivered. A reason is required.'
+        }
+        label="Reason for cancelling"
+        placeholder="e.g. Branch postponed the pickup, amount changed…"
+        confirmLabel="Cancel request"
+        onConfirm={async (reason) => {
+          await api.requests.cancel(r.id, reason)
+          finish(`${r.id} cancelled.`)
+        }}
+      />
       <AssignDrawer open={assignOpen} request={r} teams={teams} users={users} onClose={() => setAssignOpen(false)} />
     </>
   )
 }
 
-function RejectModal({ open, request, onClose }: { open: boolean; request: CashRequest; onClose: () => void }) {
-  const invalidate = useInvalidate()
+/** Confirmation dialog that requires a written reason (used for Reject and Cancel). */
+function ReasonModal({
+  open,
+  onClose,
+  title,
+  subtitle,
+  label,
+  placeholder,
+  confirmLabel,
+  onConfirm,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  subtitle: string
+  label: string
+  placeholder: string
+  confirmLabel: string
+  onConfirm: (reason: string) => Promise<void>
+}) {
   const toast = useToast()
   const [reason, setReason] = useState('')
   const [touched, setTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const empty = !reason.trim()
+  const requiredMsg = 'Required — submission is blocked until a reason is entered.'
 
   const close = () => {
     setReason('')
@@ -191,10 +255,9 @@ function RejectModal({ open, request, onClose }: { open: boolean; request: CashR
     if (empty) return
     setBusy(true)
     try {
-      await api.requests.reject(request.id, reason)
-      invalidate()
-      toast(`${request.id} rejected — the Maker has been notified.`, 'info')
-      close()
+      await onConfirm(reason)
+      setReason('')
+      setTouched(false)
     } catch (e) {
       toast((e as ApiError).message, 'error')
     } finally {
@@ -207,29 +270,29 @@ function RejectModal({ open, request, onClose }: { open: boolean; request: CashR
       open={open}
       onClose={close}
       size="sm"
-      title={`Reject ${request.id}`}
-      subtitle="The Maker will be notified. A reason is required."
+      title={title}
+      subtitle={subtitle}
       footer={
         <>
           <Button variant="ghost" onClick={close}>
-            Cancel
+            Back
           </Button>
           <Button variant={empty ? 'danger-soft' : 'danger'} onClick={confirm} loading={busy} aria-disabled={empty}>
-            Confirm reject
+            {confirmLabel}
           </Button>
         </>
       }
     >
       <Textarea
-        label="Reason for rejection"
+        label={label}
         required
         autoFocus
-        placeholder="Explain why this request is being rejected…"
+        placeholder={placeholder}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         onBlur={() => setTouched(true)}
-        error={touched && empty ? 'Required — submission is blocked until a reason is entered.' : undefined}
-        hint={!touched ? 'Required — submission is blocked until a reason is entered.' : undefined}
+        error={touched && empty ? requiredMsg : undefined}
+        hint={!touched ? requiredMsg : undefined}
         className="[&_textarea]:min-h-[110px]"
       />
     </Modal>

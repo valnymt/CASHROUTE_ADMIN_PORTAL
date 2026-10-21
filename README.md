@@ -125,7 +125,7 @@ vite.config.js             Vite + laravel-vite-plugin + React + Tailwind
 | Delivery Teams | `/teams` | Create teams, edit members, drag-and-drop members between teams |
 | New Cash Request | `/requests/new` | Deposit/Withdrawal, auto pickup/drop-off, validation, submit → opens the new request's summary |
 | All Requests / Request summary / Edit | `/requests`, `/requests/{id}`, `/requests/{id}/edit` | Search, created-by filter, hover status dropdown; summary card with timeline; the Maker can edit or cancel their own request while it's Pending |
-| Pending Approvals | `/approvals` | Pending / Approved / Rejected tabs, search |
+| Pending Approvals | `/approvals` | Pending / Approved / Rejected / Cancelled tabs, search |
 | Request Detail, Maker-Checker guard, Reject, Assign team | `/approvals/{id}`, `/approvals/{id}/reject`, `/approvals/{id}/assign` | Approve, reject with a required reason, assign an available team |
 | Audit Trail | `/audit` | Every action is logged; search, filter, event details |
 | Reports + Request history | `/reports`, `/reports/{id}` | Filters, KPIs, charts, pagination, CSV and Excel export |
@@ -179,6 +179,7 @@ should copy:
 - A Maker can't approve their own request.
 - A reason is required to reject.
 - Only the Maker who created a request can edit or cancel it, and only while it's Pending.
+- A Checker can cancel an Approved or Assigned request (before the team leaves) with a required reason; the assigned team is released.
 - Only approved requests can be assigned, and only to available teams.
 - Every action writes an audit log entry.
 

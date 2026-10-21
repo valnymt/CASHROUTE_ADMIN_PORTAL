@@ -9,7 +9,7 @@ import { useAuth } from '@/store/auth'
 import { useApi } from '@/store/data'
 import type { CashRequest } from '@/types'
 
-type Tab = 'pending' | 'approved' | 'rejected'
+type Tab = 'pending' | 'approved' | 'rejected' | 'cancelled'
 const APPROVED: CashRequest['status'][] = ['Approved', 'Assigned', 'In Transit', 'Delivered']
 
 /** AP-06 · Pending Approvals. */
@@ -31,6 +31,7 @@ export default function Approvals() {
       pending: r.filter((x) => x.status === 'Pending').length,
       approved: r.filter((x) => APPROVED.includes(x.status)).length,
       rejected: r.filter((x) => x.status === 'Rejected').length,
+      cancelled: r.filter((x) => x.status === 'Cancelled').length,
     }
   }, [requests])
 
@@ -38,7 +39,13 @@ export default function Approvals() {
     const s = q.trim().toLowerCase()
     return (requests ?? [])
       .filter((r) =>
-        tab === 'pending' ? r.status === 'Pending' : tab === 'approved' ? APPROVED.includes(r.status) : r.status === 'Rejected',
+        tab === 'pending'
+          ? r.status === 'Pending'
+          : tab === 'approved'
+            ? APPROVED.includes(r.status)
+            : tab === 'rejected'
+              ? r.status === 'Rejected'
+              : r.status === 'Cancelled',
       )
       .filter((r) => !s || `${r.id} ${branchShort(r.branchId)} ${r.type}`.toLowerCase().includes(s))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -60,6 +67,7 @@ export default function Approvals() {
             { value: 'pending', label: `Pending · ${counts.pending}` },
             { value: 'approved', label: `Approved · ${counts.approved}` },
             { value: 'rejected', label: `Rejected · ${counts.rejected}` },
+            { value: 'cancelled', label: `Cancelled · ${counts.cancelled}` },
           ]}
         />
       </div>
