@@ -14,8 +14,9 @@ const EMPTY: BranchInput = {
   name: '',
   address: '',
   type: 'Branch',
-  lat: 1.3048,
-  lng: 103.8318,
+  // Yangon city centre — the map opens here for a new branch.
+  lat: 16.8409,
+  lng: 96.1735,
   radius: 150,
   contactName: '',
   contactMobile: '',
@@ -31,10 +32,9 @@ const EMPTY: BranchInput = {
  * and typing an address moves the pin.
  *
  * In "Add" mode, Branch Code and Branch Name search the bank's branch
- * directory. Picking a branch that is already registered loads its details
- * and saving *updates* it (e.g. after a renovation or relocation); picking an
- * unregistered one fills in its code, name, address and location; anything
- * else creates a brand-new branch.
+ * directory, listing only branches not yet in the portal (registered ones are
+ * changed via Edit). Picking one fills in its code, name, address and
+ * location; anything else creates a brand-new branch. Every field is required.
  */
 export default function BranchForm({ branch, onClose }: { branch: Branch | null; onClose: () => void }) {
   const invalidate = useInvalidate()
@@ -43,9 +43,9 @@ export default function BranchForm({ branch, onClose }: { branch: Branch | null;
   const { data: branches } = useApi(() => api.branches.list())
 
   const [form, setForm] = useState<BranchInput>(branch ?? EMPTY)
-  /** Registered branch being updated (Edit mode, or an existing branch picked in Add mode). */
-  const [targetId, setTargetId] = useState<string | null>(branch?.id ?? null)
-  const [source, setSource] = useState<'none' | 'registered' | 'directory'>(branch ? 'registered' : 'none')
+  /** Registered branch being edited (Edit mode only). */
+  const targetId = branch?.id ?? null
+  const [source, setSource] = useState<'none' | 'directory'>('none')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [confirmStatus, setConfirmStatus] = useState(false)
@@ -119,54 +119,69 @@ export default function BranchForm({ branch, onClose }: { branch: Branch | null;
     })
   }
 
-  /** Fill the form from a directory entry (and load full details if it's registered). */
+  /** Branches in the bank directory that aren't in the portal yet (registered ones are already working). */
+  const unregistered = useMemo(() => (directory ?? []).filter((d) => !d.registered), [directory])
+
+  /** Fill the form from a directory entry. */
   const applyDirectory = (d: DirectoryBranch) => {
-    const existing = branches?.find((b) => b.code === d.code)
     setErrors({})
     setTypedAddress(null)
     setLookup(null)
-    if (existing) {
-      const { id, ...rest } = existing
-      setForm(rest)
-      setTargetId(id)
-      setSource('registered')
-    } else {
-      setForm((f) => ({ ...f, code: d.code, name: d.name, address: d.address, lat: d.lat, lng: d.lng }))
-      setTargetId(null)
-      setSource('directory')
-    }
+    setForm((f) => ({ ...f, code: d.code, name: d.name, address: d.address, lat: d.lat, lng: d.lng }))
+    setSource('directory')
   }
 
   // Typing a code or name that exactly matches a directory entry picks it automatically.
   const onTyped = (field: 'code' | 'name', text: string) => {
     set(field, text)
     const t = text.trim().toLowerCase()
-    const hit = directory?.find((d) => (field === 'code' ? d.code : d.name).toLowerCase() === t)
+    const hit = unregistered.find((d) => (field === 'code' ? d.code : d.name).toLowerCase() === t)
     if (hit) applyDirectory(hit)
-    else if (source !== 'none') {
-      // Moved away from the picked branch: treat as a new one from here on.
-      setTargetId(null)
-      setSource('none')
-    }
+    else if (source !== 'none') setSource('none') // moved away from the picked branch: a new one from here on
   }
 
-  const badge = (d: DirectoryBranch) =>
-    d.registered ? <Badge tone="lime">Registered</Badge> : <Badge tone="neutral">Not in portal</Badge>
+  const badge = <Badge tone="neutral">Not in portal</Badge>
   const codeOptions: ComboOption[] = useMemo(
-    () => (directory ?? []).map((d) => ({ value: d.code, label: `${d.code} · ${d.name}`, sub: d.address, badge: badge(d) })),
-    [directory],
+    () => unregistered.map((d) => ({ value: d.code, label: `${d.code} · ${d.name}`, sub: d.address, badge })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [unregistered],
   )
   const nameOptions: ComboOption[] = useMemo(
-    () => (directory ?? []).map((d) => ({ value: d.code, label: d.name, sub: `${d.code} · ${d.address}`, badge: badge(d) })),
-    [directory],
+    () => unregistered.map((d) => ({ value: d.code, label: d.name, sub: `${d.code} · ${d.address}`, badge })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [unregistered],
   )
   const pick = (o: ComboOption) => {
-    const d = directory?.find((x) => x.code === o.value)
+    const d = unregistered.find((x) => x.code === o.value)
     if (d) applyDirectory(d)
+  }
+
+  /** Every field is required — a branch can't be saved half filled in. */
+  const validate = () => {
+    const f: Record<string, string> = {}
+    if (!form.code.trim()) f.code = 'Branch code is required.'
+    else if (!editMode && branches?.some((b) => b.code.toLowerCase() === form.code.trim().toLowerCase()))
+      f.code = 'This branch is already registered. Use Edit on the Branches list instead.'
+    if (!form.name.trim()) f.name = 'Branch name is required.'
+    if (!form.address.trim()) f.address = 'Address is required.'
+    if (!Number.isFinite(form.lat)) f.lat = 'Latitude is required.'
+    if (!Number.isFinite(form.lng)) f.lng = 'Longitude is required.'
+    if (!Number.isFinite(form.radius) || form.radius < 10 || form.radius > 2000) f.radius = 'Radius must be 10–2000 m.'
+    if (!form.contactName.trim()) f.contactName = 'Contact name is required.'
+    if (!form.contactMobile.trim()) f.contactMobile = 'Mobile number is required.'
+    else if (!/^\+?[0-9 ]{7,}$/.test(form.contactMobile.trim())) f.contactMobile = 'Enter a valid mobile number, e.g. +95 9 123 456 789.'
+    if (!form.contactEmail.trim()) f.contactEmail = 'Email is required.'
+    else if (!/^\S+@\S+\.\S+$/.test(form.contactEmail.trim())) f.contactEmail = 'Enter a valid email.'
+    setErrors(f)
+    return Object.keys(f).length === 0
   }
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault()
+    if (!validate()) {
+      toast('Fill in every field to save the branch.', 'error')
+      return
+    }
     setBusy(true)
     try {
       if (targetId) await api.branches.update(targetId, form)
@@ -204,7 +219,7 @@ export default function BranchForm({ branch, onClose }: { branch: Branch | null;
     }
   }
 
-  const title = editMode ? 'Edit Branch' : source === 'registered' ? 'Update Branch' : 'Add Branch'
+  const title = editMode ? 'Edit Branch' : 'Add Branch'
 
   return (
     <Modal
@@ -229,11 +244,6 @@ export default function BranchForm({ branch, onClose }: { branch: Branch | null;
       }
     >
       <form onSubmit={submit} className="grid gap-4" noValidate>
-        {!editMode && source === 'registered' && (
-          <p className="rounded-[16px] bg-periwinkle-18 px-3.5 py-3 text-[12px] font-semibold text-plum">
-            {form.code} is already registered. Saving updates its details, for example a new address or pin after a renovation or move.
-          </p>
-        )}
         {!editMode && source === 'directory' && (
           <p className="rounded-[16px] bg-lime-28 px-3.5 py-3 text-[12px] font-semibold text-ink">
             Found {form.code} in the bank's branch directory. Check the pin and contact, then save to register it.
@@ -261,7 +271,7 @@ export default function BranchForm({ branch, onClose }: { branch: Branch | null;
               />
               <Combobox
                 label="Branch Name"
-                placeholder="Start typing, e.g. Novena"
+                placeholder="Start typing, e.g. Kamayut"
                 value={form.name}
                 onChange={(t) => onTyped('name', t)}
                 onSelect={pick}
@@ -299,8 +309,8 @@ export default function BranchForm({ branch, onClose }: { branch: Branch | null;
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Latitude" type="number" step="0.0001" value={form.lat} onChange={(e) => set('lat', parseFloat(e.target.value))} error={errors.lat} />
-          <Input label="Longitude" type="number" step="0.0001" value={form.lng} onChange={(e) => set('lng', parseFloat(e.target.value))} error={errors.lng} />
+          <Input label="Latitude" type="number" step="0.0001" value={Number.isFinite(form.lat) ? form.lat : ''} onChange={(e) => set('lat', parseFloat(e.target.value))} error={errors.lat} required />
+          <Input label="Longitude" type="number" step="0.0001" value={Number.isFinite(form.lng) ? form.lng : ''} onChange={(e) => set('lng', parseFloat(e.target.value))} error={errors.lng} required />
         </div>
         <Input
           label="Handover radius (meters)"
@@ -312,15 +322,16 @@ export default function BranchForm({ branch, onClose }: { branch: Branch | null;
           suffix="m"
           hint="Geo-fence used to validate on-site handover (the circle on the map)."
           error={errors.radius}
+          required
         />
 
         <p className="flex items-center gap-1.5 text-[14px] font-bold text-violet">
           <IconSparkle className="size-3.5" /> Handover contact (OTP delivery)
         </p>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Input label="Contact name" placeholder="Full name" value={form.contactName} onChange={(e) => set('contactName', e.target.value)} />
-          <Input label="Mobile number" type="tel" placeholder="+95 …" value={form.contactMobile} onChange={(e) => set('contactMobile', e.target.value)} />
-          <Input label="Email (OTP delivery)" type="email" placeholder="name@bank.com" value={form.contactEmail} onChange={(e) => set('contactEmail', e.target.value)} error={errors.contactEmail} />
+          <Input label="Contact name" placeholder="Full name" value={form.contactName} onChange={(e) => set('contactName', e.target.value)} error={errors.contactName} required />
+          <Input label="Mobile number" type="tel" placeholder="+95 …" value={form.contactMobile} onChange={(e) => set('contactMobile', e.target.value)} error={errors.contactMobile} required />
+          <Input label="Email (OTP delivery)" type="email" placeholder="name@bank.com" value={form.contactEmail} onChange={(e) => set('contactEmail', e.target.value)} error={errors.contactEmail} required />
         </div>
         {targetId && (
           <div className="flex items-center gap-2 text-[13px] text-ink-60">

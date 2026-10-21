@@ -3,6 +3,10 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 const round = (n: number) => +n.toFixed(5)
+/** Yangon city centre — fallback start point. */
+const YANGON: L.LatLngTuple = [16.8409, 96.1735]
+/** Myanmar's outline (with a little margin): the map can't be panned away from it. */
+const MYANMAR = L.latLngBounds([9.4, 92.0], [28.7, 101.3])
 const valid = (lat: number, lng: number) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
 
 /** Branch pin: plum dot with a white ring, centred on the coordinate. */
@@ -40,8 +44,16 @@ export default function MapPinPicker({
 
   // Create the map once.
   useEffect(() => {
-    const start: L.LatLngTuple = valid(lat, lng) ? [lat, lng] : [1.3048, 103.8318]
-    const m = L.map(el.current!, { center: start, zoom: 15, scrollWheelZoom: false, attributionControl: true })
+    const start: L.LatLngTuple = valid(lat, lng) && MYANMAR.contains([lat, lng]) ? [lat, lng] : YANGON
+    const m = L.map(el.current!, {
+      center: start,
+      zoom: 15,
+      minZoom: 5,
+      maxBounds: MYANMAR,
+      maxBoundsViscosity: 1,
+      scrollWheelZoom: false,
+      attributionControl: true,
+    })
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors',

@@ -5,6 +5,8 @@
  */
 
 const BASE = 'https://nominatim.openstreetmap.org'
+/** Search Myanmar only, preferring results around Yangon Region. */
+const MYANMAR_ONLY = 'countrycodes=mm&viewbox=95.6,17.6,96.9,16.3'
 
 interface NominatimAddress {
   house_number?: string
@@ -19,7 +21,7 @@ interface NominatimAddress {
   country?: string
 }
 
-/** "238 Orchard Road, Orchard, Singapore 238851" — short form for the address field. */
+/** "Sule Pagoda Road, Kyauktada, Yangon 11182" — short form for the address field. */
 function formatAddress(a: NominatimAddress, fallback: string) {
   const street = [a.house_number, a.road].filter(Boolean).join(' ')
   const area = a.suburb ?? a.neighbourhood
@@ -30,7 +32,7 @@ function formatAddress(a: NominatimAddress, fallback: string) {
 
 /** Address text → coordinates (first match), or null if nothing was found. */
 export async function geocodeAddress(query: string, signal?: AbortSignal): Promise<{ lat: number; lng: number } | null> {
-  const url = `${BASE}/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`
+  const url = `${BASE}/search?format=jsonv2&limit=1&${MYANMAR_ONLY}&q=${encodeURIComponent(query)}`
   const res = await fetch(url, { signal, headers: { Accept: 'application/json' } })
   if (!res.ok) throw new Error(`Address lookup failed (${res.status})`)
   const [hit] = (await res.json()) as { lat: string; lon: string }[]

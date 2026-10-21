@@ -25,17 +25,17 @@ export const DEMO_PASSWORD = 'password'
  * GET /api/branch-directory.
  */
 export const BRANCH_DIRECTORY: { code: string; name: string; address: string; lat: number; lng: number }[] = [
-  { code: 'BR-001', name: 'Orchard Branch', address: '238 Orchard Rd, Singapore', lat: 1.3048, lng: 103.8318 },
-  { code: 'BR-002', name: 'Tampines Branch', address: '4 Tampines Central 5', lat: 1.3526, lng: 103.9447 },
-  { code: 'BR-003', name: 'Bugis Branch', address: '200 Victoria St', lat: 1.2995, lng: 103.8554 },
-  { code: 'BR-004', name: 'Jurong Branch', address: '63 Jurong Gateway Rd', lat: 1.3331, lng: 103.7426 },
-  { code: 'BR-005', name: 'Clementi Branch', address: '3155 Commonwealth Ave W', lat: 1.3151, lng: 103.7652 },
-  { code: 'BR-006', name: 'Novena Branch', address: '238 Thomson Rd, Novena Square', lat: 1.3204, lng: 103.8438 },
-  { code: 'BR-007', name: 'Woodlands Branch', address: '30 Woodlands Ave 2', lat: 1.4360, lng: 103.7865 },
-  { code: 'BR-008', name: 'Bedok Branch', address: '311 New Upper Changi Rd', lat: 1.3240, lng: 103.9300 },
-  { code: 'BR-009', name: 'Yishun Branch', address: '930 Yishun Ave 2', lat: 1.4296, lng: 103.8355 },
-  { code: 'BR-010', name: 'Punggol Branch', address: '83 Punggol Central, Waterway Point', lat: 1.4065, lng: 103.9021 },
-  { code: 'HQ-001', name: 'HQ Cash Centre', address: '1 Raffles Quay', lat: 1.2812, lng: 103.8513 },
+  { code: 'BR-001', name: 'Sule Branch', address: 'Sule Pagoda Rd, Kyauktada, Yangon', lat: 16.7745, lng: 96.1589 },
+  { code: 'BR-002', name: 'Bahan Branch', address: 'Shwegondaing Rd, Bahan, Yangon', lat: 16.8075, lng: 96.1562 },
+  { code: 'BR-003', name: 'Hlaing Branch', address: 'Insein Rd, Hlaing, Yangon', lat: 16.8475, lng: 96.1236 },
+  { code: 'BR-004', name: 'Insein Branch', address: 'Insein Rd, Insein, Yangon', lat: 16.8932, lng: 96.1031 },
+  { code: 'BR-005', name: 'Sanchaung Branch', address: 'Baho Rd, Sanchaung, Yangon', lat: 16.8018, lng: 96.1334 },
+  { code: 'BR-006', name: 'Kamayut Branch', address: 'Pyay Rd, Kamayut, Yangon', lat: 16.8236, lng: 96.1305 },
+  { code: 'BR-007', name: 'Thingangyun Branch', address: 'Thanthumar Rd, Thingangyun, Yangon', lat: 16.8268, lng: 96.1948 },
+  { code: 'BR-008', name: 'North Dagon Branch', address: 'Pinlon Rd, North Dagon, Yangon', lat: 16.8752, lng: 96.1934 },
+  { code: 'BR-009', name: 'Mayangone Branch', address: 'Kabar Aye Pagoda Rd, Mayangone, Yangon', lat: 16.8651, lng: 96.1428 },
+  { code: 'BR-010', name: 'South Okkalapa Branch', address: 'Thudhamma Rd, South Okkalapa, Yangon', lat: 16.8483, lng: 96.1826 },
+  { code: 'HQ-001', name: 'HQ Cash Centre', address: 'Pansodan St, Kyauktada, Yangon', lat: 16.7752, lng: 96.1652 },
 ]
 
 export interface Db {
@@ -120,12 +120,12 @@ export function createSeed(now = new Date()): Db {
     contactEmail: `${b.contactName.toLowerCase().replace(/\s+/g, '.')}@bank.com`,
   })
   const branches: Branch[] = [
-    branch({ id: 'BR-001', code: 'BR-001', name: 'Orchard Branch', address: '238 Orchard Rd, Singapore', type: 'Branch', lat: 1.3048, lng: 103.8318, radius: 150, contactName: 'Amy Tan', active: true }),
-    branch({ id: 'BR-002', code: 'BR-002', name: 'Tampines Branch', address: '4 Tampines Central 5', type: 'Branch', lat: 1.3526, lng: 103.9447, radius: 120, contactName: 'Daniel Lim', active: true }),
-    branch({ id: 'BR-003', code: 'BR-003', name: 'Bugis Branch', address: '200 Victoria St', type: 'Branch', lat: 1.2995, lng: 103.8554, radius: 100, contactName: 'Sara Koh', active: true }),
-    branch({ id: 'BR-004', code: 'BR-004', name: 'Jurong Branch', address: '63 Jurong Gateway Rd', type: 'Branch', lat: 1.3331, lng: 103.7426, radius: 150, contactName: 'Wei Ming', active: false }),
-    branch({ id: 'BR-005', code: 'BR-005', name: 'Clementi Branch', address: '3155 Commonwealth Ave W', type: 'Branch', lat: 1.3151, lng: 103.7652, radius: 120, contactName: 'Nora Lee', active: true }),
-    branch({ id: 'HQ-001', code: 'HQ-001', name: 'HQ Cash Centre', address: '1 Raffles Quay', type: 'HQ', lat: 1.2812, lng: 103.8513, radius: 250, contactName: 'Ops Desk', active: true }),
+    branch({ id: 'BR-001', code: 'BR-001', name: 'Sule Branch', address: 'Sule Pagoda Rd, Kyauktada, Yangon', type: 'Branch', lat: 16.7745, lng: 96.1589, radius: 150, contactName: 'Amy Tan', active: true }),
+    branch({ id: 'BR-002', code: 'BR-002', name: 'Bahan Branch', address: 'Shwegondaing Rd, Bahan, Yangon', type: 'Branch', lat: 16.8075, lng: 96.1562, radius: 120, contactName: 'Daniel Lim', active: true }),
+    branch({ id: 'BR-003', code: 'BR-003', name: 'Hlaing Branch', address: 'Insein Rd, Hlaing, Yangon', type: 'Branch', lat: 16.8475, lng: 96.1236, radius: 100, contactName: 'Sara Koh', active: true }),
+    branch({ id: 'BR-004', code: 'BR-004', name: 'Insein Branch', address: 'Insein Rd, Insein, Yangon', type: 'Branch', lat: 16.8932, lng: 96.1031, radius: 150, contactName: 'Wei Ming', active: false }),
+    branch({ id: 'BR-005', code: 'BR-005', name: 'Sanchaung Branch', address: 'Baho Rd, Sanchaung, Yangon', type: 'Branch', lat: 16.8018, lng: 96.1334, radius: 120, contactName: 'Nora Lee', active: true }),
+    branch({ id: 'HQ-001', code: 'HQ-001', name: 'HQ Cash Centre', address: 'Pansodan St, Kyauktada, Yangon', type: 'HQ', lat: 16.7752, lng: 96.1652, radius: 250, contactName: 'Ops Desk', active: true }),
   ]
 
   const teams: Team[] = [
@@ -239,7 +239,7 @@ export function createSeed(now = new Date()): Db {
 
   const notifications: Notification[] = [
     { id: 'N-3', title: 'GPS feed delayed', body: 'Team B last ping 2 min ago', at: minsAgo(2), read: false, link: '/live' },
-    { id: 'N-2', title: 'New request to review', body: 'REQ-1048 · Orchard · MMK 250,000', at: minsAgo(20), read: false, link: '/approvals/REQ-1048' },
+    { id: 'N-2', title: 'New request to review', body: 'REQ-1048 · Sule · MMK 250,000', at: minsAgo(20), read: false, link: '/approvals/REQ-1048' },
     { id: 'N-1', title: 'Trip delivered', body: 'REQ-1038 delivered by Team A', at: minsAgo(30), read: false, link: '/reports/REQ-1038' },
   ]
 

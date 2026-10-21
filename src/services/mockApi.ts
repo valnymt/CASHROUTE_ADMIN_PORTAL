@@ -9,7 +9,7 @@ import { ApiError, type Api, type BranchInput, type RequestInput, type UserInput
  * network call, so loading states are exercised.
  */
 
-const STORAGE_KEY = 'cashroute.mockdb.v3'
+const STORAGE_KEY = 'cashroute.mockdb.v4'
 const MAX_ATTEMPTS = 5
 const LATENCY = 180
 
@@ -110,7 +110,10 @@ function validateBranch(data: BranchInput, id?: string) {
   if (!Number.isFinite(data.lat) || data.lat < -90 || data.lat > 90) fields.lat = 'Latitude must be between -90 and 90.'
   if (!Number.isFinite(data.lng) || data.lng < -180 || data.lng > 180) fields.lng = 'Longitude must be between -180 and 180.'
   if (!Number.isFinite(data.radius) || data.radius < 10 || data.radius > 2000) fields.radius = 'Radius must be 10–2000 m.'
-  if (data.contactEmail && !/^\S+@\S+\.\S+$/.test(data.contactEmail)) fields.contactEmail = 'Enter a valid email.'
+  if (!data.contactName.trim()) fields.contactName = 'Contact name is required.'
+  if (!data.contactMobile.trim()) fields.contactMobile = 'Mobile number is required.'
+  if (!data.contactEmail.trim()) fields.contactEmail = 'Email is required.'
+  else if (!/^\S+@\S+\.\S+$/.test(data.contactEmail)) fields.contactEmail = 'Enter a valid email.'
   if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
 }
 
@@ -309,6 +312,7 @@ export const mockApi: Api = {
         r.status = 'Cancelled'
         r.cancelReason = reason.trim() || null
         const who = byChecker ? 'Checker' : 'Maker'
+        r.cancelledBy = who
         r.timeline.push({
           label: reason.trim() ? `Cancelled by ${who} — ${reason.trim()}` : `Cancelled by ${who}`,
           by: me.name,

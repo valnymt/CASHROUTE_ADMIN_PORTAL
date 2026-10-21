@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { IconSparkle } from '@/components/icons'
 import { Badge, ChipGroup, ErrorBlock, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
@@ -10,7 +10,13 @@ import { useApi } from '@/store/data'
 import type { CashRequest } from '@/types'
 
 type Tab = 'pending' | 'approved' | 'rejected' | 'cancelled'
+const TABS: Tab[] = ['pending', 'approved', 'rejected', 'cancelled']
 const APPROVED: CashRequest['status'][] = ['Approved', 'Assigned', 'In Transit', 'Delivered']
+
+/** Only Checker cancels belong here — a Maker withdrawing their own Pending request stays in All Requests. */
+const checkerCancelled = (r: CashRequest) =>
+  r.status === 'Cancelled' &&
+  (r.cancelledBy ? r.cancelledBy === 'Checker' : r.timeline.some((t) => t.label.startsWith('Cancelled by Checker')))
 
 /** AP-06 · Pending Approvals. */
 export default function Approvals() {
@@ -19,7 +25,9 @@ export default function Approvals() {
   const { data: requests, error, reload } = useApi(() => api.requests.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: users } = useApi(() => api.users.list())
-  const [tab, setTab] = useState<Tab>('pending')
+  const [params, setParams] = useSearchParams()
+  const tab: Tab = TABS.find((t) => t === params.get('tab')) ?? 'pending'
+  const setTab = (t: Tab) => setParams(t === 'pending' ? {} : { tab: t }, { replace: true })
   const [q, setQ] = useState('')
 
   const branchShort = (id: string) => branches?.find((b) => b.id === id)?.name.replace(' Branch', '') ?? id
@@ -31,7 +39,7 @@ export default function Approvals() {
       pending: r.filter((x) => x.status === 'Pending').length,
       approved: r.filter((x) => APPROVED.includes(x.status)).length,
       rejected: r.filter((x) => x.status === 'Rejected').length,
-      cancelled: r.filter((x) => x.status === 'Cancelled').length,
+      cancelled: r.filter(checkerCancelled).length,
     }
   }, [requests])
 
@@ -45,7 +53,7 @@ export default function Approvals() {
             ? APPROVED.includes(r.status)
             : tab === 'rejected'
               ? r.status === 'Rejected'
-              : r.status === 'Cancelled',
+              : checkerCancelled(r),
       )
       .filter((r) => !s || `${r.id} ${branchShort(r.branchId)} ${r.type}`.toLowerCase().includes(s))
     // eslint-disable-next-line react-hooks/exhaustive-deps

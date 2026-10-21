@@ -57,11 +57,12 @@ export default function RequestDetail() {
   // A Checker can still call off an approved request until the team is on the road.
   const canCancel = isChecker && (r.status === 'Approved' || r.status === 'Assigned')
 
-  // After a reject or cancel there's nothing left to do here — go back to the queue.
-  const finish = (message: string) => {
+  // After a reject or cancel there's nothing left to do here — go back to the queue
+  // (a cancel lands on the Cancelled tab so the Checker sees the result).
+  const finish = (message: string, tab?: 'cancelled') => {
     invalidate()
     toast(message, 'info')
-    navigate('/approvals', { replace: true })
+    navigate(tab ? `/approvals?tab=${tab}` : '/approvals', { replace: true })
   }
 
   const approve = async () => {
@@ -209,7 +210,7 @@ export default function RequestDetail() {
         confirmLabel="Cancel request"
         onConfirm={async (reason) => {
           await api.requests.cancel(r.id, reason)
-          finish(`${r.id} cancelled.`)
+          finish(`${r.id} cancelled.`, 'cancelled')
         }}
       />
       <AssignDrawer open={assignOpen} request={r} teams={teams} users={users} onClose={() => setAssignOpen(false)} />

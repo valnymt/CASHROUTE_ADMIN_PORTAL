@@ -78,8 +78,10 @@ export interface CashRequest {
   status: RequestStatus
   teamId: string | null
   rejectReason: string | null
-  /** Set when the Maker withdraws their own pending request. */
+  /** Set when the request is cancelled (Maker withdrawal or Checker cancel). */
   cancelReason?: string | null
+  /** Who cancelled it: the Maker (own Pending request) or a Checker (Approved/Assigned). */
+  cancelledBy?: 'Maker' | 'Checker' | null
   timeline: TimelineEntry[]
 }
 
