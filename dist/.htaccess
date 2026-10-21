@@ -1,0 +1,9 @@
+# Copied into dist/ by `npm run build`. Lets Apache (XAMPP) serve the React
+# app: any URL that isn't a real file (e.g. /branches/create) gets index.html,
+# and React Router shows the right page.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.html [L]
+</IfModule>

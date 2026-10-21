@@ -52,6 +52,10 @@ That address forwards to `dist/`. The build uses `VITE_BASE_PATH` from `.env`, w
 Run `npm run build` again after every change to see it through XAMPP. `npm run dev` doesn't need a
 rebuild.
 
+**`dist/` is committed to git**, so after a `git pull` teammates can open the XAMPP address straight
+away, with no `npm install` needed just to view it. Whoever changes the UI runs `npm run build` and
+commits the updated `dist/` together with the code.
+
 ## Settings (`.env`)
 
 | Variable | Default | Meaning |
