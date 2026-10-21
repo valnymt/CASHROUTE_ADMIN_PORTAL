@@ -121,10 +121,20 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
           <Avatar name={user.name} size={38} />
           <div className="min-w-0 leading-tight">
             <p className="truncate text-[13px] font-bold text-ink">{user.name}</p>
-            <p className="truncate text-[11px] text-ink-60">{user.role.replace(' + ', ' · ')}</p>
+            <p className="truncate text-[11px] text-ink-60">{user.role}</p>
           </div>
         </div>
       )}
+      <button
+        type="button"
+        onClick={() => {
+          onNavigate?.()
+          navigate('/account/password')
+        }}
+        className="self-start text-[11px] font-semibold text-violet hover:underline"
+      >
+        Change password
+      </button>
       <button type="button" onClick={() => { onNavigate?.(); trigger() }} className="self-start text-[11px] font-semibold text-violet hover:underline">
         Demo: idle timeout
       </button>

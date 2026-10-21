@@ -25,6 +25,7 @@ const META: { path: string; crumbs: string[]; title: string }[] = [
   { path: '/audit', crumbs: ['Insights', 'Audit Trail'], title: 'Audit Trail' },
   { path: '/reports/:id', crumbs: ['Insights', 'Reports', ':id'], title: 'Reports' },
   { path: '/reports', crumbs: ['Insights', 'Reports'], title: 'Reports' },
+  { path: '/account/password', crumbs: ['Account', 'Change password'], title: 'Account' },
 ]
 
 /**

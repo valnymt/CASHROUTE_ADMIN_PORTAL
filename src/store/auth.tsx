@@ -50,8 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loggedOut,
         login,
         logout,
-        isMaker: role === 'Maker' || role === 'Maker + Checker',
-        isChecker: role === 'Checker' || role === 'Maker + Checker',
+        isMaker: role === 'Maker' || role === 'Super Admin',
+        isChecker: role === 'Checker' || role === 'Super Admin',
       }}
     >
       {children}

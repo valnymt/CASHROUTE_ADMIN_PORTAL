@@ -1,5 +1,7 @@
 import type { AuditLog, CashRequest, User } from '@/types'
 import { BRANCH_DIRECTORY, createSeed, DEMO_PASSWORD, type Db } from '@/lib/seed'
+import { nextUserId } from '@/lib/ids'
+import { teamRuleError } from '@/lib/teams'
 import { ApiError, type Api, type BranchInput, type RequestInput, type UserInput } from './types'
 
 /**
@@ -9,7 +11,7 @@ import { ApiError, type Api, type BranchInput, type RequestInput, type UserInput
  * network call, so loading states are exercised.
  */
 
-const STORAGE_KEY = 'cashroute.mockdb.v4'
+const STORAGE_KEY = 'cashroute.mockdb.v8'
 const MAX_ATTEMPTS = 5
 const LATENCY = 180
 
@@ -60,9 +62,10 @@ function currentUser(): User {
   return u
 }
 
-const canMake = (u: User) => u.role === 'Maker' || u.role === 'Maker + Checker'
-const canCheck = (u: User) => u.role === 'Checker' || u.role === 'Maker + Checker'
-const portalRoles: User['role'][] = ['Maker', 'Checker', 'Maker + Checker']
+// Super Admin has both Maker and Checker rights (the Maker-Checker guard still applies to their own requests).
+const canMake = (u: User) => u.role === 'Maker' || u.role === 'Super Admin'
+const canCheck = (u: User) => u.role === 'Checker' || u.role === 'Super Admin'
+const portalRoles: User['role'][] = ['Super Admin', 'Maker', 'Checker']
 
 function audit(event: AuditLog['event'], requestId: string, userId: string) {
   db.audit.unshift({
@@ -126,7 +129,18 @@ function validateUser(data: UserInput, id?: string) {
   else if (db.users.some((u) => u.email.toLowerCase() === data.email.toLowerCase() && u.id !== id))
     fields.email = 'This email is already registered.'
   if (data.mobile && !/^\+?[\d\s-]{6,}$/.test(data.mobile)) fields.mobile = 'Enter a valid mobile number.'
+  // Every new user needs a default password (portal or mobile app; they change it later themselves).
+  if (!id) {
+    if (!data.password) fields.password = 'Set a default password.'
+    else if (data.password.length < 8) fields.password = 'Password must be at least 8 characters.'
+  }
   if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
+}
+
+/** Confirming a team requires at least 1 driver + 2 custodians. Drafts can have any members. */
+function checkTeamRule(memberIds: string[], confirmed?: boolean) {
+  const err = confirmed ? teamRuleError(memberIds, db.users) : null
+  if (err) throw new ApiError(err, 'validation', 422, { members: err })
 }
 
 export const mockApi: Api = {
@@ -144,7 +158,7 @@ export const mockApi: Api = {
         const u = db.users.find((x) => x.username.toLowerCase() === key)
         if (u?.status === 'Locked')
           throw new ApiError('Account locked', 'locked', 423)
-        if (!u || password !== DEMO_PASSWORD) {
+        if (!u || password !== (u.password ?? DEMO_PASSWORD)) {
           const attempts = (db.failedAttempts[key] ?? 0) + 1
           db.failedAttempts[key] = attempts
           if (u && attempts >= MAX_ATTEMPTS) {
@@ -179,6 +193,7 @@ export const mockApi: Api = {
         db.failedAttempts[key] = MAX_ATTEMPTS
         if (u) u.status = 'Locked'
       }),
+
   },
 
   branches: {
@@ -214,7 +229,7 @@ export const mockApi: Api = {
         validateUser(data)
         const u: User = {
           ...data,
-          id: `U-${String(db.seq.user++).padStart(3, '0')}`,
+          id: nextUserId(db.users),
           username: data.username || data.name.trim().toLowerCase().replace(/\s+/g, '.'),
         }
         db.users.push(u)
@@ -225,7 +240,8 @@ export const mockApi: Api = {
         validateUser(data, id)
         const u = db.users.find((x) => x.id === id)
         if (!u) throw new ApiError('User not found.', 'not_found', 404)
-        Object.assign(u, data, { username: u.username })
+        // Edit User never sends a password; only Change password does (for the signed-in user).
+        Object.assign(u, data, { username: u.username, password: data.password || u.password })
         if (u.status === 'Active') db.failedAttempts[u.username.toLowerCase()] = 0
         return u
       }),
@@ -233,23 +249,27 @@ export const mockApi: Api = {
 
   teams: {
     list: () => respond(() => db.teams),
-    create: ({ name, memberIds }) =>
+    create: ({ name, memberIds, confirmed }) =>
       respond(() => {
         if (!name.trim()) throw new ApiError('Team name is required.', 'validation', 422, { name: 'Team name is required.' })
         if (db.teams.some((t) => t.name.toLowerCase() === name.trim().toLowerCase()))
           throw new ApiError('A team with this name exists.', 'validation', 422, { name: 'A team with this name exists.' })
-        const t = { id: `T-${db.seq.team++}`, name: name.trim(), status: 'Available' as const, currentRequestId: null, memberIds: [] as string[] }
+        checkTeamRule(memberIds, confirmed)
+        const t = { id: `T-${db.seq.team++}`, name: name.trim(), status: 'Available' as const, currentRequestId: null, memberIds: [] as string[], confirmed: false }
         db.teams.push(t)
         setMembers(t.id, memberIds)
+        t.confirmed = !!confirmed
         return t
       }),
-    update: (id, { name, memberIds }) =>
+    update: (id, { name, memberIds, confirmed }) =>
       respond(() => {
         const t = db.teams.find((x) => x.id === id)
         if (!t) throw new ApiError('Team not found.', 'not_found', 404)
         if (!name.trim()) throw new ApiError('Team name is required.', 'validation', 422, { name: 'Team name is required.' })
+        checkTeamRule(memberIds, confirmed)
         t.name = name.trim()
         setMembers(id, memberIds)
+        t.confirmed = !!confirmed
         return t
       }),
   },
@@ -358,6 +378,7 @@ export const mockApi: Api = {
         if (r.status !== 'Approved') throw new ApiError('Only approved requests can be assigned.', 'conflict', 409)
         if (!t) throw new ApiError('Select a team.', 'validation', 422)
         if (t.status !== 'Available') throw new ApiError(`${t.name} is on a trip.`, 'conflict', 409)
+        if (!t.confirmed) throw new ApiError(`${t.name} isn't confirmed yet. Confirm it in Delivery Teams first.`, 'conflict', 409)
         r.status = 'Assigned'
         r.teamId = t.id
         r.timeline.push({ label: `${t.name} assigned`, by: me.name, at: new Date().toISOString() })
@@ -392,7 +413,10 @@ export const mockApi: Api = {
 function setMembers(teamId: string, memberIds: string[]) {
   for (const t of db.teams) {
     if (t.id === teamId) continue
-    t.memberIds = t.memberIds.filter((m) => !memberIds.includes(m))
+    const kept = t.memberIds.filter((m) => !memberIds.includes(m))
+    // Losing a member to another team turns a confirmed team back into a draft.
+    if (kept.length !== t.memberIds.length) t.confirmed = false
+    t.memberIds = kept
   }
   const team = db.teams.find((t) => t.id === teamId)!
   for (const u of db.users) {

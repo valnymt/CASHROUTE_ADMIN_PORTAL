@@ -66,6 +66,8 @@ const user = (
   status: 'Active',
   branchId: null,
   teamId: null,
+  // Everyone starts with the demo password (portal users on the web, delivery staff in the mobile app).
+  password: DEMO_PASSWORD,
   ...extra,
 })
 
@@ -98,7 +100,7 @@ export function createSeed(now = new Date()): Db {
   const users: User[] = [
     user('U-001', 'Amy Tan', 'Maker', { branchId: 'BR-001' }),
     user('U-002', 'Priya Nair', 'Maker', { branchId: 'HQ-001' }),
-    user('U-003', 'Admin User', 'Maker + Checker', { branchId: 'HQ-001', username: 'admin.maker' }),
+    user('U-003', 'Admin User', 'Super Admin', { branchId: 'HQ-001', username: 'admin.maker' }),
     user('U-004', 'Raj Kumar', 'Driver', { teamId: 'T-A' }),
     user('U-005', 'Lena Ho', 'Custodian', { teamId: 'T-A' }),
     user('U-006', 'Sam Yeo', 'Custodian', { status: 'Locked' }),
@@ -129,9 +131,9 @@ export function createSeed(now = new Date()): Db {
   ]
 
   const teams: Team[] = [
-    { id: 'T-A', name: 'Team A', status: 'Available', currentRequestId: null, memberIds: ['U-004', 'U-005', 'U-007'] },
-    { id: 'T-B', name: 'Team B', status: 'On trip', currentRequestId: 'REQ-1043', memberIds: ['U-008', 'U-009', 'U-010'] },
-    { id: 'T-C', name: 'Team C', status: 'Available', currentRequestId: null, memberIds: ['U-011', 'U-012', 'U-013'] },
+    { id: 'T-A', name: 'Team A', status: 'Available', currentRequestId: null, memberIds: ['U-004', 'U-005', 'U-007'], confirmed: true },
+    { id: 'T-B', name: 'Team B', status: 'On trip', currentRequestId: 'REQ-1043', memberIds: ['U-008', 'U-009', 'U-010'], confirmed: true },
+    { id: 'T-C', name: 'Team C', status: 'Available', currentRequestId: null, memberIds: ['U-011', 'U-012', 'U-013'], confirmed: true },
   ]
 
   const tl = (...entries: [string, string, string][]): TimelineEntry[] =>

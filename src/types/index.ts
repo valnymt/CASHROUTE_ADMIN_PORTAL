@@ -4,7 +4,8 @@
  * endpoints needs no UI changes.
  */
 
-export type Role = 'Maker' | 'Checker' | 'Maker + Checker' | 'Driver' | 'Custodian'
+/** Portal roles: Super Admin, Maker, Checker. Driver/Custodian use the mobile app only. */
+export type Role = 'Super Admin' | 'Maker' | 'Checker' | 'Driver' | 'Custodian'
 export type UserStatus = 'Active' | 'Locked'
 
 export interface User {
@@ -18,6 +19,8 @@ export interface User {
   /** Branch name or team id (for delivery staff). */
   branchId: string | null
   teamId: string | null
+  /** Portal sign-in password (Super Admin / Maker / Checker). UI demo only — the real backend stores it hashed. */
+  password?: string
 }
 
 export interface Branch {
@@ -44,6 +47,8 @@ export interface Team {
   /** Request currently being delivered when status is "On trip". */
   currentRequestId: string | null
   memberIds: string[]
+  /** Confirmed = checked to have at least 1 driver + 2 custodians; only confirmed teams can be assigned. Any member change makes it a draft again. */
+  confirmed: boolean
 }
 
 export type Direction = 'Deposit' | 'Withdrawal'

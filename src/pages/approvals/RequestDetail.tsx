@@ -104,7 +104,7 @@ export default function RequestDetail() {
               ['Requested date', fmtDate(r.date)],
               ['Complete within', r.slot],
               ['Remarks', r.remarks || '—'],
-              ['Created by', mine ? `${creator?.name} (you)` : `${creator?.name} (${creator?.role === 'Maker + Checker' ? 'Maker' : creator?.role})`],
+              ['Created by', mine ? `${creator?.name} (you)` : `${creator?.name} (${creator?.role})`],
               ['Created at', fmtDateTime(r.createdAt)],
               ...(team ? ([['Delivery team', team.name]] as [string, string][]) : []),
               ...(r.rejectReason ? ([['Reject reason', r.rejectReason]] as [string, string][]) : []),
@@ -318,8 +318,10 @@ function AssignDrawer({
   const toast = useToast()
   const [teamId, setTeamId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const sorted = [...teams].sort((a, b) => Number(a.status !== 'Available') - Number(b.status !== 'Available'))
-  const firstFree = sorted.find((t) => t.status === 'Available')?.id ?? null
+  // Only confirmed, available teams can take a delivery.
+  const canTake = (t: Team) => t.status === 'Available' && t.confirmed
+  const sorted = [...teams].sort((a, b) => Number(!canTake(a)) - Number(!canTake(b)))
+  const firstFree = sorted.find(canTake)?.id ?? null
   const chosen = teamId ?? firstFree
 
   const assign = async () => {
@@ -367,7 +369,7 @@ function AssignDrawer({
       </p>
       <ul role="radiogroup" aria-label="Delivery team" className="mt-4 flex flex-col gap-3">
         {sorted.map((t) => {
-          const free = t.status === 'Available'
+          const free = canTake(t)
           const on = chosen === t.id
           return (
             <li key={t.id}>

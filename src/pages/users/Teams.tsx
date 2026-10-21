@@ -1,6 +1,7 @@
 import { useState, type DragEvent } from 'react'
 import { Avatar, Badge, Button, Card, ErrorBlock, Input, LoadingBlock, Modal, PageHeader, StatusBadge } from '@/components/ui'
 import { cn } from '@/lib/cn'
+import { TEAM_MIN, teamMix, teamRuleError } from '@/lib/teams'
 import { api, ApiError } from '@/services/api'
 import { useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
@@ -41,6 +42,22 @@ export default function Teams() {
     toast(`${byId(userId)?.name} moved to unassigned.`, 'info')
   }
 
+  /** Lock the team in once it has at least 1 driver + 2 custodians. */
+  const confirmTeam = async (team: Team) => {
+    const rule = teamRuleError(team.memberIds, users)
+    if (rule) {
+      toast(`${team.name}: ${rule}`, 'error')
+      return
+    }
+    try {
+      await api.teams.update(team.id, { name: team.name, memberIds: team.memberIds, confirmed: true })
+      invalidate()
+      toast(`${team.name} confirmed. It can now be assigned to deliveries.`)
+    } catch (e) {
+      toast((e as ApiError).message, 'error')
+    }
+  }
+
   const dropProps = (key: string, onDrop: (userId: string) => void) => ({
     onDragOver: (e: DragEvent) => {
       e.preventDefault()
@@ -74,8 +91,14 @@ export default function Teams() {
             <div {...dropProps(t.id, (id) => moveTo(id, t))} className="flex flex-1 flex-col">
               <p className="text-[16px] font-bold text-ink">{t.name}</p>
               <div className="mt-1 mb-3 flex items-center justify-between">
-                <span className="text-[11px] text-ink-60">Operational unit</span>
-                <Badge tone={t.status === 'On trip' ? 'violet' : 'lime'}>{t.status}</Badge>
+                <span className="text-[11px] text-ink-60">
+                  {teamMix(t.memberIds, users).drivers}/{TEAM_MIN.Driver} driver · {teamMix(t.memberIds, users).custodians}/{TEAM_MIN.Custodian} custodians
+                </span>
+                {t.confirmed ? (
+                  <Badge tone={t.status === 'On trip' ? 'violet' : 'lime'}>{t.status}</Badge>
+                ) : (
+                  <Badge tone="amber">Draft</Badge>
+                )}
               </div>
               <ul className="flex flex-1 flex-col gap-2">
                 {t.memberIds.length === 0 && (
@@ -88,7 +111,12 @@ export default function Teams() {
                   return u ? <MemberRow key={id} user={u} onRemove={() => removeFrom(id, t)} /> : null
                 })}
               </ul>
-              <Button variant="ghost" size="sm" className="mt-3 w-full !py-2.5" onClick={() => setEditing(t)}>
+              {!t.confirmed && (
+                <Button size="sm" className="mt-3 w-full !py-2.5" onClick={() => confirmTeam(t)}>
+                  Confirm team
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" className="mt-2 w-full !py-2.5" onClick={() => setEditing(t)}>
                 Edit members
               </Button>
             </div>
@@ -102,9 +130,9 @@ export default function Teams() {
               if (t) removeFrom(id, t)
             })}
           >
-            <p className="text-[16px] font-bold text-ink">Unassigned members</p>
+            <p className="text-[16px] font-bold text-ink">Unassigned members · {unassigned.length}</p>
             <p className="mt-1 mb-3 text-[11px] text-ink-60">Drag or add into a team</p>
-            <ul className="flex flex-col gap-1">
+            <ul className="-mr-2 flex max-h-[360px] flex-col gap-1 overflow-y-auto pr-2">
               {unassigned.length === 0 && <li className="py-4 text-center text-[12px] text-ink-38">Everyone is in a team.</li>}
               {unassigned.map((u) => (
                 <li
@@ -148,7 +176,9 @@ export default function Teams() {
               >
                 <span>
                   <span className="block text-[14px] font-bold text-ink">{t.name}</span>
-                  <span className="block text-[11px] text-ink-60">{t.memberIds.length} members</span>
+                  <span className="block text-[11px] text-ink-60">
+                    {t.memberIds.length} members{t.confirmed ? '' : ' · draft'}
+                  </span>
                 </span>
                 <StatusBadge status={t.status} />
               </button>
@@ -192,22 +222,37 @@ function TeamForm({ team, delivery, teams, onClose }: { team: Team | null; deliv
   const [name, setName] = useState(team?.name ?? `Team ${String.fromCharCode(65 + teams.length)}`)
   const [members, setMembers] = useState<string[]>(team?.memberIds ?? [])
   const [error, setError] = useState<string>()
+  const [ruleError, setRuleError] = useState<string>()
   const [busy, setBusy] = useState(false)
 
-  const teamOf = (id: string) => teams.find((t) => t.memberIds.includes(id))
-  const toggle = (id: string) => setMembers((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]))
+  // People already in another team aren't offered: only unassigned ones and this team's own members.
+  const pickable = delivery.filter((u) => {
+    const t = teams.find((x) => x.memberIds.includes(u.id))
+    return !t || t.id === team?.id
+  })
+  const mix = teamMix(members, delivery)
+  const toggle = (id: string) => {
+    setRuleError(undefined)
+    setMembers((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]))
+  }
 
-  const save = async () => {
+  const save = async (confirmed: boolean) => {
+    const rule = confirmed ? teamRuleError(members, delivery) : null
+    if (rule) {
+      setRuleError(rule)
+      return
+    }
     setBusy(true)
     try {
-      if (team) await api.teams.update(team.id, { name, memberIds: members })
-      else await api.teams.create({ name, memberIds: members })
+      if (team) await api.teams.update(team.id, { name, memberIds: members, confirmed })
+      else await api.teams.create({ name, memberIds: members, confirmed })
       invalidate()
-      toast(`${name} saved.`)
+      toast(confirmed ? `${name} confirmed.` : `${name} saved as a draft. Confirm it once it has 1 driver and 2 custodians.`)
       onClose()
     } catch (e) {
       const ae = e as ApiError
-      setError(ae.fields?.name ?? ae.message)
+      if (ae.fields?.members) setRuleError(ae.message)
+      else setError(ae.fields?.name ?? ae.message)
     } finally {
       setBusy(false)
     }
@@ -218,23 +263,35 @@ function TeamForm({ team, delivery, teams, onClose }: { team: Team | null; deliv
       open
       onClose={onClose}
       title={team ? `Edit ${team.name}` : 'Create Team'}
-      subtitle="Pick the drivers and custodians in this unit. Members move out of their current team."
+      subtitle={`Save as a draft anytime. To confirm, pick at least ${TEAM_MIN.Driver} driver and ${TEAM_MIN.Custodian} custodians. People already in another team aren't listed.`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={save} loading={busy}>
-            Save Team
+          <Button variant="ghost" onClick={() => save(false)} disabled={busy}>
+            Save draft
+          </Button>
+          <Button onClick={() => save(true)} loading={busy}>
+            Save &amp; confirm
           </Button>
         </>
       }
     >
       <div className="grid gap-4">
         <Input label="Team name" value={name} onChange={(e) => setName(e.target.value)} error={error} />
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {delivery.map((u) => {
-            const other = teamOf(u.id)
+        <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold">
+          <Badge tone={mix.drivers >= TEAM_MIN.Driver ? 'lime' : 'neutral'}>
+            Driver {mix.drivers}/{TEAM_MIN.Driver}
+          </Badge>
+          <Badge tone={mix.custodians >= TEAM_MIN.Custodian ? 'lime' : 'neutral'}>
+            Custodians {mix.custodians}/{TEAM_MIN.Custodian}
+          </Badge>
+          {ruleError && <span className="text-danger">{ruleError}</span>}
+        </div>
+        {pickable.length === 0 && <p className="text-[12px] text-ink-60">No unassigned drivers or custodians. Add them in User Accounts first.</p>}
+        <ul className="-mr-2 grid max-h-[340px] gap-2 overflow-y-auto pr-2 sm:grid-cols-2">
+          {pickable.map((u) => {
             const on = members.includes(u.id)
             return (
               <li key={u.id}>
@@ -248,10 +305,7 @@ function TeamForm({ team, delivery, teams, onClose }: { team: Team | null; deliv
                   <Avatar name={u.name} size={28} />
                   <span className="min-w-0 flex-1 leading-tight">
                     <span className="block truncate text-[12px] font-bold text-ink">{u.name}</span>
-                    <span className="block text-[10px] text-ink-60">
-                      {u.role}
-                      {other && other.id !== team?.id ? ` · in ${other.name}` : ''}
-                    </span>
+                    <span className="block text-[10px] text-ink-60">{u.role}</span>
                   </span>
                 </label>
               </li>

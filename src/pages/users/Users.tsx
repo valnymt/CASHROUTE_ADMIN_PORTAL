@@ -1,15 +1,16 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Button, ChipGroup, ErrorBlock, Input, LoadingBlock, Modal, PageHeader, SearchInput, Select, StatusBadge, Toggle } from '@/components/ui'
+import { Button, ErrorBlock, FilterDropdown, Input, LoadingBlock, Modal, PageHeader, SearchInput, Select, StatusBadge, Toggle } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
+import { nextUserId } from '@/lib/ids'
 import { api, ApiError, type UserInput } from '@/services/api'
 import { useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
 import type { Role, User } from '@/types'
 import UsersTabs from './UsersTabs'
 
-type RoleFilter = 'all' | 'maker' | 'checker' | 'delivery'
-const ROLES: Role[] = ['Maker', 'Checker', 'Maker + Checker', 'Driver', 'Custodian']
+type RoleFilter = 'all' | 'admin' | 'maker' | 'checker' | 'delivery'
+const ROLES: Role[] = ['Super Admin', 'Maker', 'Checker', 'Driver', 'Custodian']
 
 /** AP-03 · User Accounts + Add/Edit User modal. */
 export default function Users() {
@@ -43,8 +44,9 @@ export default function Users() {
     return (users ?? []).filter((u) => {
       const okRole =
         role === 'all' ||
-        (role === 'maker' && u.role.includes('Maker')) ||
-        (role === 'checker' && u.role.includes('Checker')) ||
+        (role === 'admin' && u.role === 'Super Admin') ||
+        (role === 'maker' && u.role === 'Maker') ||
+        (role === 'checker' && u.role === 'Checker') ||
         (role === 'delivery' && (u.role === 'Driver' || u.role === 'Custodian'))
       return okRole && (!s || `${u.name} ${u.username} ${u.id} ${u.email}`.toLowerCase().includes(s))
     })
@@ -60,12 +62,14 @@ export default function Users() {
       />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <SearchInput value={q} onChange={setQ} placeholder="Search name or username…" className="sm:w-[320px]" />
-        <ChipGroup
+        <FilterDropdown
           label="Role"
           value={role}
           onChange={setRole}
+          defaultValue="all"
           options={[
             { value: 'all', label: 'All roles' },
+            { value: 'admin', label: 'Super Admin' },
             { value: 'maker', label: 'Maker' },
             { value: 'checker', label: 'Checker' },
             { value: 'delivery', label: 'Delivery' },
@@ -86,6 +90,11 @@ export default function Users() {
             { header: 'User ID', cell: (u) => <span className="font-bold">{u.id}</span>, hideOnMobile: true },
             { header: 'Name', cell: (u) => u.name, primary: true },
             { header: 'Role', cell: (u) => u.role },
+            {
+              header: 'Password',
+              cell: (u) => (u.password ? <span className="font-mono text-[12px]">{u.password}</span> : <span className="text-ink-38">—</span>),
+              hideOnMobile: true,
+            },
             { header: 'Branch / Team', cell: where },
             { header: 'Status', cell: (u) => <StatusBadge status={u.status} /> },
           ]}
@@ -98,6 +107,7 @@ export default function Users() {
           key={editing === 'new' ? 'new' : editing.id}
           user={editing === 'new' ? null : editing}
           branchOptions={(branches ?? []).map((b) => ({ value: b.id, label: b.name }))}
+          nextId={nextUserId(users ?? [])}
           onClose={() => setEditing(null)}
         />
       )}
@@ -108,10 +118,13 @@ export default function Users() {
 function UserForm({
   user,
   branchOptions,
+  nextId,
   onClose,
 }: {
   user: User | null
   branchOptions: { value: string; label: string }[]
+  /** ID the new user will get (Add mode). */
+  nextId: string
   onClose: () => void
 }) {
   const invalidate = useInvalidate()
@@ -119,10 +132,14 @@ function UserForm({
   const [form, setForm] = useState<UserInput>(
     user ?? { name: '', role: '' as Role, mobile: '', email: '', status: 'Active', branchId: null, teamId: null },
   )
-  const [employeeId] = useState(user?.id ?? '')
+  const employeeId = user?.id ?? nextId
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const isDelivery = form.role === 'Driver' || form.role === 'Custodian'
+  /** Every new user gets a default password: portal roles sign in to the portal, delivery staff to the mobile app. */
+  const needsPassword = !user
 
   const set = <K extends keyof UserInput>(k: K, v: UserInput[K]) => {
     setForm((f) => ({ ...f, [k]: v }))
@@ -135,9 +152,13 @@ function UserForm({
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault()
+    if (needsPassword && password && password !== confirm) {
+      setErrors((x) => ({ ...x, confirm: 'Passwords do not match.' }))
+      return
+    }
     setBusy(true)
     try {
-      const payload = { ...form, branchId: isDelivery ? null : form.branchId }
+      const payload = { ...form, branchId: isDelivery ? null : form.branchId, ...(needsPassword ? { password } : {}) }
       if (user) await api.users.update(user.id, payload)
       else await api.users.create(payload)
       invalidate()
@@ -171,7 +192,7 @@ function UserForm({
       <form onSubmit={submit} className="grid gap-4" noValidate>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input label="Full name" placeholder="e.g. Amy Tan" value={form.name} onChange={(e) => set('name', e.target.value)} error={errors.name} required />
-          <Input label="Employee ID" placeholder="e.g. U-1234" value={employeeId} disabled hint={user ? undefined : 'Assigned automatically'} />
+          <Input label="Employee ID" placeholder="e.g. U-1234" value={employeeId} disabled hint={user ? undefined : 'Assigned automatically — this is the ID the new user will get'} />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input label="Mobile number" type="tel" placeholder="+95 …" value={form.mobile} onChange={(e) => set('mobile', e.target.value)} error={errors.mobile} />
@@ -194,6 +215,41 @@ function UserForm({
             onChange={(e) => set('branchId', e.target.value || null)}
             options={branchOptions}
           />
+        )}
+        {needsPassword && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Default password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setErrors(({ password: _p, ...x }) => x)
+              }}
+              error={errors.password}
+              hint={
+                isDelivery
+                  ? 'For the CashRoute mobile app. Share it with the team member; they can change it after signing in.'
+                  : 'Share it with the user; they can change it after signing in.'
+              }
+              required
+            />
+            <Input
+              label="Confirm password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Type it again"
+              value={confirm}
+              onChange={(e) => {
+                setConfirm(e.target.value)
+                setErrors(({ confirm: _c, ...x }) => x)
+              }}
+              error={errors.confirm}
+              required
+            />
+          </div>
         )}
         {isDelivery && <p className="text-[12px] text-ink-60">Delivery staff are grouped under Users & Teams → Delivery Teams.</p>}
         <Toggle

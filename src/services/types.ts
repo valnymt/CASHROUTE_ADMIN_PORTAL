@@ -21,7 +21,8 @@ export interface DirectoryBranch {
   registered: boolean
 }
 export type UserInput = Omit<User, 'id' | 'username'> & { username?: string }
-export type TeamInput = { name: string; memberIds: string[] }
+/** `confirmed: true` = Confirm team (needs at least 1 driver + 2 custodians). Leave it out to save as a draft. */
+export type TeamInput = { name: string; memberIds: string[]; confirmed?: boolean }
 export interface RequestInput {
   type: Direction
   branchId: string
