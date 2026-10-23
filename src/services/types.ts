@@ -56,6 +56,8 @@ export interface Api {
     logout(): Promise<void>
     /** Demo helper from the design: burns the remaining attempts. */
     simulateLockout(username: string): Promise<void>
+    /** The signed-in user replaces their own password (POST /me/password). */
+    changePassword(currentPassword: string, newPassword: string): Promise<void>
   }
   branches: {
     list(): Promise<Branch[]>

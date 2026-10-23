@@ -58,6 +58,8 @@ export const httpApi: Api = {
     simulateLockout: async () => {
       throw new ApiError('Lockout simulation is only available in demo mode.', 'unsupported', 400)
     },
+    changePassword: (currentPassword, newPassword) =>
+      post('/me/password', { current_password: currentPassword, password: newPassword }),
   },
   branches: {
     list: () => get('/branches'),

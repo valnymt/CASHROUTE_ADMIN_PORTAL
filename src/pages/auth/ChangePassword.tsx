@@ -1,21 +1,17 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Input, PageHeader } from '@/components/ui'
-import { DEMO_PASSWORD } from '@/lib/seed'
 import { api, ApiError } from '@/services/api'
 import { useAuth } from '@/store/auth'
-import { useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
 
 /**
- * Signed-in portal user replaces their own password (e.g. the default one set in Add User).
- * UI only for now: it saves through the normal user update, so User Accounts shows the new
- * password. A dedicated password endpoint comes with the backend.
+ * Signed-in portal user replaces their own password.
+ * Calls POST /api/me/password (demo mode: equivalent helper on mockApi).
  */
 export default function ChangePassword() {
   const navigate = useNavigate()
   const toast = useToast()
-  const invalidate = useInvalidate()
   const { user } = useAuth()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -23,10 +19,12 @@ export default function ChangePassword() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
 
+  const clear = (k: string) => setErrors(({ [k]: _drop, ...rest }) => rest)
+
   const submit = async (e?: FormEvent) => {
     e?.preventDefault()
     const f: Record<string, string> = {}
-    if (!current) f.current = 'Enter your current password.'
+    if (!current) f.current_password = 'Enter your current password.'
     if (!next) f.password = 'Enter a new password.'
     else if (next.length < 8) f.password = 'New password must be at least 8 characters.'
     else if (next === current) f.password = 'Choose a password different from the current one.'
@@ -35,27 +33,18 @@ export default function ChangePassword() {
     if (Object.keys(f).length || !user) return
     setBusy(true)
     try {
-      // Read the latest record so a password changed earlier in this session is respected.
-      const fresh = (await api.users.list()).find((u) => u.id === user.id) ?? user
-      if (current !== (fresh.password ?? DEMO_PASSWORD)) {
-        setErrors({ current: 'Current password is incorrect.' })
-        return
-      }
-      const { id, username: _u, ...rest } = fresh
-      await api.users.update(id, { ...rest, password: next })
-      invalidate()
+      await api.auth.changePassword(current, next)
       toast('Password changed. Use the new one next time you sign in.')
       navigate(-1)
     } catch (err) {
       const ae = err as ApiError
+      // Backend returns `current_password` / `password` in `fields`.
       setErrors(ae.fields ?? {})
       toast(ae.message, 'error')
     } finally {
       setBusy(false)
     }
   }
-
-  const clear = (k: string) => setErrors(({ [k]: _drop, ...rest }) => rest)
 
   return (
     <>
@@ -69,9 +58,9 @@ export default function ChangePassword() {
             value={current}
             onChange={(e) => {
               setCurrent(e.target.value)
-              clear('current')
+              clear('current_password')
             }}
-            error={errors.current}
+            error={errors.current_password}
             required
           />
           <Input

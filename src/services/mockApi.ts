@@ -194,6 +194,20 @@ export const mockApi: Api = {
         if (u) u.status = 'Locked'
       }),
 
+    changePassword: (currentPassword, newPassword) =>
+      respond(() => {
+        if (!db.session) throw new ApiError('Not signed in.', 'unauthenticated', 401)
+        const u = db.users.find((x) => x.id === db.session!.userId)
+        if (!u) throw new ApiError('Not signed in.', 'unauthenticated', 401)
+        if (currentPassword !== (u.password ?? DEMO_PASSWORD))
+          throw new ApiError('Current password is incorrect.', 'validation', 422, { current_password: 'Current password is incorrect.' })
+        if (newPassword.length < 8)
+          throw new ApiError('New password must be at least 8 characters.', 'validation', 422, { password: 'New password must be at least 8 characters.' })
+        if (newPassword === currentPassword)
+          throw new ApiError('Choose a password different from the current one.', 'validation', 422, { password: 'Choose a password different from the current one.' })
+        u.password = newPassword
+      }),
+
   },
 
   branches: {

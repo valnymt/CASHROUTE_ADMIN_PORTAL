@@ -9,6 +9,9 @@ node_modules/
 .env
 .env.*
 !.env.example
+# .env.production holds the public settings used by `npm run build` so the
+# committed dist/ is identical for everyone (no secrets, safe to track).
+!.env.production
 
 # logs
 *.log
