@@ -64,6 +64,44 @@ export default function AppLayout() {
     )
   if (!user) return <Navigate to="/login" replace state={{ from: pathname }} />
 
+  //the checker cannot acces to users
+  if (
+    user.role === 'Checker' &&
+    (pathname === '/users' || pathname.startsWith('/users/'))
+  ) {
+    return <Navigate to="/teams" replace />
+  }
+
+
+
+  // if (!ready || (!user && preview && autoLogin !== 'failed')) {
+  //   return (
+  //     <div className="grid min-h-dvh place-items-center">
+  //       <LoadingBlock />
+  //     </div>
+  //   )
+  // }
+
+  // if (!user) {
+  //   return <Navigate to="/login" replace state={{ from: pathname }} />
+  // }
+
+  // // Checkers cannot access management pages.
+  // const isRestrictedForChecker =
+  //   user.role === 'Checker' &&
+  //   (
+  //     pathname === '/branches' ||
+  //     pathname.startsWith('/branches/') ||
+  //     pathname === '/users' ||
+  //     pathname.startsWith('/users/') ||
+  //     pathname === '/teams' ||
+  //     pathname.startsWith('/teams/')
+  //   )
+
+  // if (isRestrictedForChecker) {
+  //   return <Navigate to="/live" replace />
+  // }
+
   let crumbs: string[] = []
   let title = 'CashRoute'
   for (const m of META) {

@@ -5,11 +5,16 @@ import { TEAM_MIN, teamMix, teamRuleError } from '@/lib/teams'
 import { api, ApiError } from '@/services/api'
 import { useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
+import { useAuth } from '@/store/auth'
 import type { Team, User } from '@/types'
 import UsersTabs from './UsersTabs'
 
 /** AP-03 · Delivery Teams — group drivers/custodians into operational units. */
 export default function Teams() {
+  //added readonly for Maker 
+  const { user } = useAuth()
+  const isReadOnly = user?.role === 'Maker'
+
   const { data: teams, error, reload } = useApi(() => api.teams.list())
   const { data: users } = useApi(() => api.users.list())
   const invalidate = useInvalidate()
@@ -78,7 +83,12 @@ export default function Teams() {
       <PageHeader
         title="Delivery Team Grouping"
         subtitle="Bundle delivery members into named operational units"
-        actions={<Button onClick={() => setEditing('new')}>+ Create Team</Button>}
+        // actions={<Button onClick={() => setEditing('new')}>+ Create Team</Button>}
+        actions={
+          !isReadOnly ? (
+            <Button onClick={() => setEditing('new')}>+ Create Team</Button>
+          ) : undefined
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -87,7 +97,7 @@ export default function Teams() {
           const locked = t.status === 'On trip'
           return (
             <Card key={t.id} padded={false} className={cn('flex flex-col p-4 transition', dropTarget === t.id && 'ring-4 ring-violet/30')}>
-              <div {...(locked ? {} : dropProps(t.id, (id) => moveTo(id, t)))} className="flex flex-1 flex-col">
+              <div {...(locked || isReadOnly ? {} : dropProps(t.id, (id) => moveTo(id, t)))} className="flex flex-1 flex-col">
                 <p className="text-[16px] font-bold text-ink">{t.name}</p>
                 <div className="mt-1 mb-3 flex items-center justify-between">
                   <span className="text-[11px] text-ink-60">
@@ -106,16 +116,26 @@ export default function Teams() {
                       Drop members here
                     </li>
                   )}
-                  {t.memberIds.map((id) => {
+                  {/* {t.memberIds.map((id) => {
                     const u = byId(id)
                     return u ? <MemberRow key={id} user={u} onRemove={locked ? undefined : () => removeFrom(id, t)} /> : null
+                  })} */}
+                  {t.memberIds.map((id) => {
+                    const u = byId(id)
+                    return u ? (
+                      <MemberRow
+                        key={id}
+                        user={u}
+                        onRemove={locked || isReadOnly ? undefined : () => removeFrom(id, t)}
+                      />
+                    ) : null
                   })}
                 </ul>
                 {locked ? (
                   <p className="mt-3 rounded-[16px] bg-periwinkle-18 px-3 py-2.5 text-center text-[11px] font-semibold text-plum">
                     On a delivery — editing unlocks when the trip ends
                   </p>
-                ) : (
+                ) : !isReadOnly ? (
                   <>
                     {!t.confirmed && (
                       <Button size="sm" className="mt-3 w-full !py-2.5" onClick={() => confirmTeam(t)}>
@@ -126,7 +146,7 @@ export default function Teams() {
                       Edit members
                     </Button>
                   </>
-                )}
+                ) : null}
               </div>
             </Card>
           )
@@ -134,10 +154,17 @@ export default function Teams() {
 
         <Card padded={false} className={cn('p-4 transition', dropTarget === 'none' && 'ring-4 ring-violet/30')}>
           <div
-            {...dropProps('none', (id) => {
-              const t = teams.find((x) => x.memberIds.includes(id))
-              if (t) removeFrom(id, t)
-            })}
+            // {...dropProps('none', (id) => {
+            //   const t = teams.find((x) => x.memberIds.includes(id))
+            //   if (t) removeFrom(id, t)
+            // })}
+            {...(!isReadOnly
+              ? dropProps('none', (id) => {
+                const t = teams.find((x) => x.memberIds.includes(id))
+                if (t) removeFrom(id, t)
+              })
+              : {})}
+
           >
             <p className="text-[16px] font-bold text-ink">Unassigned members · {unassigned.length}</p>
             <p className="mt-1 mb-3 text-[11px] text-ink-60">Drag or add into a team</p>
@@ -158,9 +185,18 @@ export default function Teams() {
                       <span className="block text-[10px] text-ink-60">{u.role}</span>
                     </span>
                   </span>
-                  <button type="button" onClick={() => setAddFor(u)} className="shrink-0 text-[11px] font-bold text-violet hover:underline">
+                  {/* <button type="button" onClick={() => setAddFor(u)} className="shrink-0 text-[11px] font-bold text-violet hover:underline">
                     + Add
-                  </button>
+                  </button> */}
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setAddFor(u)}
+                      className="shrink-0 text-[11px] font-bold text-violet hover:underline"
+                    >
+                      + Add
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -172,7 +208,7 @@ export default function Teams() {
         <TeamForm team={editing === 'new' ? null : editing} delivery={delivery} teams={teams} onClose={() => setEditing(null)} />
       )}
 
-      <Modal open={!!addFor} onClose={() => setAddFor(null)} size="sm" title={`Add ${addFor?.name ?? ''} to…`}>
+      <Modal open={!isReadOnly && !!addFor} onClose={() => setAddFor(null)} size="sm" title={`Add ${addFor?.name ?? ''} to…`}>
         <ul className="flex flex-col gap-2 pb-2">
           {teams.map((t) => (
             <li key={t.id}>

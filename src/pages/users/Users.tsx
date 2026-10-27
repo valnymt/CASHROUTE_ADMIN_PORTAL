@@ -4,16 +4,21 @@ import { Button, ErrorBlock, FilterDropdown, Input, LoadingBlock, Modal, PageHea
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { nextUserId } from '@/lib/ids'
 import { api, ApiError, type UserInput } from '@/services/api'
+import { useAuth } from '@/store/auth'
 import { useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
 import type { Role, User } from '@/types'
 import UsersTabs from './UsersTabs'
 
 type RoleFilter = 'all' | 'admin' | 'maker' | 'checker' | 'delivery'
-const ROLES: Role[] = ['Super Admin', 'Maker', 'Checker', 'Driver', 'Custodian']
+const ROLES: Role[] = ['Maker', 'Checker', 'Driver', 'Custodian']
 
 /** AP-03 · User Accounts + Add/Edit User modal. */
 export default function Users() {
+  //adding readonly for Maker
+  const { user } = useAuth()
+  const isReadOnly = user?.role === 'Maker'
+
   const { data: users, error, reload } = useApi(() => api.users.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
@@ -24,11 +29,13 @@ export default function Users() {
   const { id } = useParams()
 
   // The modal is part of the URL: /users/create and /users/{id}/edit.
-  const editing: User | 'new' | null = pathname.endsWith('/create')
-    ? 'new'
-    : id
-      ? (users?.find((u) => u.id.toLowerCase() === id.toLowerCase()) ?? null)
-      : null
+  const editing: User | 'new' | null = isReadOnly
+    ? null
+    : pathname.endsWith('/create')
+      ? 'new'
+      : id
+        ? (users?.find((u) => u.id.toLowerCase() === id.toLowerCase()) ?? null)
+        : null
   const setEditing = (u: User | 'new' | null) =>
     navigate(u === null ? '/users' : u === 'new' ? '/users/create' : `/users/${u.id}/edit`)
 
@@ -44,7 +51,7 @@ export default function Users() {
     return (users ?? []).filter((u) => {
       const okRole =
         role === 'all' ||
-        (role === 'admin' && u.role === 'Super Admin') ||
+        // (role === 'admin' && u.role === 'Super Admin') ||
         (role === 'maker' && u.role === 'Maker') ||
         (role === 'checker' && u.role === 'Checker') ||
         (role === 'delivery' && (u.role === 'Driver' || u.role === 'Custodian'))
@@ -58,7 +65,12 @@ export default function Users() {
       <PageHeader
         title="User Accounts"
         subtitle="Assign roles, channels and statuses"
-        actions={<Button onClick={() => setEditing('new')}>+ Add User</Button>}
+        // actions={<Button onClick={() => setEditing('new')}>+ Add User</Button>}
+        actions={
+          !isReadOnly ? (
+            <Button onClick={() => setEditing('new')}>+ Add User</Button>
+          ) : undefined
+        }
       />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <SearchInput value={q} onChange={setQ} placeholder="Search name or username…" className="sm:w-[320px]" />
@@ -69,7 +81,7 @@ export default function Users() {
           defaultValue="all"
           options={[
             { value: 'all', label: 'All roles' },
-            { value: 'admin', label: 'Super Admin' },
+            // { value: 'admin', label: 'Super Admin' },
             { value: 'maker', label: 'Maker' },
             { value: 'checker', label: 'Checker' },
             { value: 'delivery', label: 'Delivery' },
@@ -85,7 +97,8 @@ export default function Users() {
         <DataTable
           rows={rows}
           rowKey={(u) => u.id}
-          onRowClick={(u) => setEditing(u)}
+          // onRowClick={(u) => setEditing(u)}
+          onRowClick={isReadOnly ? undefined : (u) => setEditing(u)}
           columns={[
             { header: 'User ID', cell: (u) => <span className="font-bold">{u.id}</span>, hideOnMobile: true },
             { header: 'Name', cell: (u) => u.name, primary: true },
@@ -98,7 +111,12 @@ export default function Users() {
             { header: 'Branch / Team', cell: where },
             { header: 'Status', cell: (u) => <StatusBadge status={u.status} /> },
           ]}
-          action={(u) => <RowLink onClick={() => setEditing(u)}>Edit ›</RowLink>}
+          // action={(u) => <RowLink onClick={() => setEditing(u)}>Edit ›</RowLink>}
+          action={
+            isReadOnly
+              ? undefined
+              : (u) => <RowLink onClick={() => setEditing(u)}>Edit ›</RowLink>
+          }
         />
       )}
 

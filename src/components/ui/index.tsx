@@ -64,7 +64,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   to?: string
 }
 
-export function Button({ variant = 'lime', size = 'md', loading, className, children, to, disabled, ...rest }: ButtonProps) {
+export function Button({ variant = 'violet', size = 'md', loading, className, children, to, disabled, ...rest }: ButtonProps) {
   const cls = cn(
     'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[30px] font-bold transition',
     'disabled:cursor-not-allowed disabled:bg-ink-6 disabled:text-ink-38 disabled:shadow-none disabled:border-transparent',

@@ -1,8 +1,12 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
+import { useAuth } from '@/store/auth'
 
 /** "Users | Delivery Teams" segmented switch shared by both AP-03 screens. */
 export default function UsersTabs() {
+  const { user } = useAuth()
+  const isChecker = user?.role === 'Checker'
+
   const tab = (to: string, label: string) => (
     <NavLink
       to={to}
@@ -18,8 +22,9 @@ export default function UsersTabs() {
   )
   return (
     <div className="glass flex w-max gap-1 rounded-[24px] p-1">
-      {tab('/users', 'Users')}
+      {!isChecker && tab('/users', 'Users')}
       {tab('/teams', 'Delivery Teams')}
     </div>
   )
+
 }
