@@ -18,7 +18,9 @@ interface Filters {
   team: string
 }
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+// The bank is closed on Sat/Sun, so the Trips-per-day chart only shows
+// business days. Keep the index aligned with Date#getDay (Mon = 0 here).
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 
 function defaultFilters(): Filters {
   const to = new Date()
@@ -27,13 +29,12 @@ function defaultFilters(): Filters {
   return { from: isoDay(from), to: isoDay(to), branch: '', type: '', status: '', team: '' }
 }
 
-/** ISO week number, used for the "On-time vs late" chart. */
-function isoWeek(d: Date) {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const day = t.getUTCDay() || 7
-  t.setUTCDate(t.getUTCDate() + 4 - day)
-  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
-  return Math.ceil(((t.getTime() - y0.getTime()) / 86400000 + 1) / 7)
+/** Monday of the current local week as YYYY-MM-DD. */
+function thisWeekMonday() {
+  const d = new Date()
+  const dow = (d.getDay() + 6) % 7 // Mon = 0
+  d.setDate(d.getDate() - dow)
+  return isoDay(d)
 }
 
 /** AP-10 · Reports & Analytics (the trip log itself lives on Trip History). */
@@ -70,13 +71,15 @@ export default function Reports() {
     const avg = n ? Math.round(rows.reduce((s, t) => s + t.durationMin, 0) / n) : 0
     const onTime = n ? Math.round((rows.filter((t) => t.onTime).length / n) * 100) : 0
 
-    // Per weekday: count, amount moved and average duration.
+    // Per weekday Mon–Fri (bank is closed Sat/Sun, so those bars are hidden).
     const perDay = WEEKDAYS.map(() => ({ count: 0, amount: 0, dur: 0 }))
     rows.forEach((t) => {
       const i = (new Date(`${t.date}T00:00:00`).getDay() + 6) % 7
-      perDay[i]!.count++
-      perDay[i]!.amount += t.amount
-      perDay[i]!.dur += t.durationMin
+      if (i < 5) {
+        perDay[i]!.count++
+        perDay[i]!.amount += t.amount
+        perDay[i]!.dur += t.durationMin
+      }
     })
 
     // Per branch: trip count, total amount, deposit vs withdrawal split.
@@ -90,16 +93,21 @@ export default function Reports() {
       perBranchMap.set(t.branchId, e)
     })
 
-    // Per ISO week: on-time/late counts, total amount, date range.
-    const weeksMap = new Map<number, { on: number; late: number; amount: number; dates: string[] }>()
-    rows.forEach((t) => {
-      const w = isoWeek(new Date(`${t.date}T00:00:00`))
-      const e = weeksMap.get(w) ?? { on: 0, late: 0, amount: 0, dates: [] }
-      if (t.onTime) e.on++
-      else e.late++
-      e.amount += t.amount
-      e.dates.push(t.date)
-      weeksMap.set(w, e)
+    // Current week's Mon–Fri — on-time vs late per business day.
+    const weekStart = thisWeekMonday()
+    const days = Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(`${weekStart}T00:00:00`)
+      d.setDate(d.getDate() + i)
+      return isoDay(d)
+    })
+    // Use the full trips feed (not the filtered rows) so the "this week"
+    // chart isn't blanked out by the Reports date-range filter.
+    const weekDays = days.map((day) => {
+      const dayRows = (trips ?? []).filter((t) => t.date === day)
+      const on = dayRows.filter((t) => t.onTime).length
+      const late = dayRows.length - on
+      const amount = dayRows.reduce((s, t) => s + t.amount, 0)
+      return { day, on, late, amount }
     })
 
     return {
@@ -109,9 +117,10 @@ export default function Reports() {
       onTime,
       perDay,
       perBranch: [...perBranchMap.entries()].sort((a, b) => b[1].amount - a[1].amount),
-      weeks: [...weeksMap.entries()].sort((a, b) => a[0] - b[0]).slice(-4),
+      weekDays,
     }
-  }, [rows])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, trips])
 
   if (error) return <ErrorBlock error={error} onRetry={reload} />
   if (!trips || !branches || !teams) return <LoadingBlock />
@@ -224,38 +233,49 @@ export default function Reports() {
             })}
           </ul>
         </Card>
-        <Card title="On-time vs late">
+        <Card title="On-time vs late" action={<span className="text-[11px] font-bold text-ink-60">This week</span>}>
           <ul className="flex flex-col gap-3">
-            {stats.weeks.length === 0 && <li className="text-[12px] text-ink-60">No data.</li>}
-            {stats.weeks.map(([w, e]) => {
-              const dates = e.dates.sort()
-              const weekFrom = dates[0]!
-              const weekTo = dates[dates.length - 1]!
+            {stats.weekDays.every((d) => d.on + d.late === 0) && <li className="text-[12px] text-ink-60">No trips yet this week.</li>}
+            {stats.weekDays.map((d, i) => {
+              const total = d.on + d.late
               return (
-                <li key={w} className="grid grid-cols-[60px_1fr] items-center gap-3">
-                  <span className="text-[11px] text-ink-60">Week {w}</span>
+                <li key={d.day} className="grid grid-cols-[60px_1fr] items-center gap-3">
+                  <span className="text-[11px] text-ink-60">{WEEKDAYS[i]}</span>
                   <button
                     type="button"
-                    onClick={() => navigate(`/history?from=${weekFrom}&to=${weekTo}`)}
-                    aria-label={`Week ${w} — see ${e.on + e.late} trips in Trip History`}
-                    className="group relative block h-5 cursor-pointer"
+                    disabled={total === 0}
+                    onClick={() => navigate(`/history?from=${d.day}&to=${d.day}`)}
+                    aria-label={`${WEEKDAYS[i]} ${d.day} — see ${total} trips in Trip History`}
+                    className="group relative block h-5 cursor-pointer disabled:cursor-default"
                   >
                     <span className="flex h-2.5 gap-1 transition group-hover:brightness-110" style={{ marginTop: 5 }}>
-                      <span className="rounded-full bg-lime" style={{ flex: e.on || 0.0001 }} />
-                      {e.late > 0 && <span className="rounded-full bg-violet" style={{ flex: Math.max(e.late, (e.on + e.late) * 0.06) }} />}
+                      {total === 0 ? (
+                        <span className="w-full rounded-full bg-ink-6" />
+                      ) : (
+                        <>
+                          <span className="rounded-full bg-lime" style={{ flex: d.on || 0.0001 }} />
+                          {d.late > 0 && <span className="rounded-full bg-violet" style={{ flex: Math.max(d.late, total * 0.06) }} />}
+                        </>
+                      )}
                     </span>
                     <ChartTip>
-                      <p className="text-[11px] font-bold text-ink">Week {w}</p>
-                      <p className="mt-0.5 text-[10px] text-ink-60">{weekFrom} → {weekTo}</p>
-                      <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
-                        <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-lime" />On time</span>
-                        <span className="text-right font-bold text-ink">{e.on}</span>
-                        <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-violet" />Late</span>
-                        <span className="text-right font-bold text-ink">{e.late}</span>
-                        <span className="text-ink-60">Amount</span>
-                        <span className="text-right font-bold text-plum">{fmtMoney(e.amount, currency)}</span>
-                      </div>
-                      <p className="mt-1.5 text-[10px] font-bold text-violet">Click to open in Trip History ›</p>
+                      <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
+                      <p className="mt-0.5 text-[10px] text-ink-60">{d.day}</p>
+                      {total === 0 ? (
+                        <p className="mt-1 text-[11px] text-ink-60">No trips</p>
+                      ) : (
+                        <>
+                          <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+                            <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-lime" />On time</span>
+                            <span className="text-right font-bold text-ink">{d.on}</span>
+                            <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-violet" />Late</span>
+                            <span className="text-right font-bold text-ink">{d.late}</span>
+                            <span className="text-ink-60">Amount</span>
+                            <span className="text-right font-bold text-plum">{fmtMoney(d.amount, currency)}</span>
+                          </div>
+                          <p className="mt-1.5 text-[10px] font-bold text-violet">Click to open in Trip History ›</p>
+                        </>
+                      )}
                     </ChartTip>
                   </button>
                 </li>
