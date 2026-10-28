@@ -124,7 +124,9 @@ export default function Reports() {
         }
       />
 
-      <Card padded={false} className="p-4">
+      {/* relative + z-20 so the DatePicker popovers float above the KPI cards below
+          (each glass card is its own stacking context because of backdrop-filter). */}
+      <Card padded={false} className="relative z-20 p-4">
         <form
           className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[2.2fr_1fr_1fr_1fr_1fr_auto] xl:items-end"
           onSubmit={(e) => {
