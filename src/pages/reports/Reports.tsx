@@ -29,13 +29,6 @@ function defaultFilters(): Filters {
   return { from: isoDay(from), to: isoDay(to), branch: '', type: '', status: '', team: '' }
 }
 
-/** Monday of the current local week as YYYY-MM-DD. */
-function thisWeekMonday() {
-  const d = new Date()
-  const dow = (d.getDay() + 6) % 7 // Mon = 0
-  d.setDate(d.getDate() - dow)
-  return isoDay(d)
-}
 
 /** AP-10 · Reports & Analytics (the trip log itself lives on Trip History). */
 export default function Reports() {
@@ -72,13 +65,17 @@ export default function Reports() {
     const onTime = n ? Math.round((rows.filter((t) => t.onTime).length / n) * 100) : 0
 
     // Per weekday Mon–Fri (bank is closed Sat/Sun, so those bars are hidden).
-    const perDay = WEEKDAYS.map(() => ({ count: 0, amount: 0, dur: 0 }))
+    // Carries count, amount, duration AND on-time / late split so both charts
+    // can reuse the same rollup.
+    const perDay = WEEKDAYS.map(() => ({ count: 0, amount: 0, dur: 0, on: 0, late: 0 }))
     rows.forEach((t) => {
       const i = (new Date(`${t.date}T00:00:00`).getDay() + 6) % 7
       if (i < 5) {
         perDay[i]!.count++
         perDay[i]!.amount += t.amount
         perDay[i]!.dur += t.durationMin
+        if (t.onTime) perDay[i]!.on++
+        else perDay[i]!.late++
       }
     })
 
@@ -93,23 +90,6 @@ export default function Reports() {
       perBranchMap.set(t.branchId, e)
     })
 
-    // Current week's Mon–Fri — on-time vs late per business day.
-    const weekStart = thisWeekMonday()
-    const days = Array.from({ length: 5 }, (_, i) => {
-      const d = new Date(`${weekStart}T00:00:00`)
-      d.setDate(d.getDate() + i)
-      return isoDay(d)
-    })
-    // Use the full trips feed (not the filtered rows) so the "this week"
-    // chart isn't blanked out by the Reports date-range filter.
-    const weekDays = days.map((day) => {
-      const dayRows = (trips ?? []).filter((t) => t.date === day)
-      const on = dayRows.filter((t) => t.onTime).length
-      const late = dayRows.length - on
-      const amount = dayRows.reduce((s, t) => s + t.amount, 0)
-      return { day, on, late, amount }
-    })
-
     return {
       n,
       amount,
@@ -117,10 +97,8 @@ export default function Reports() {
       onTime,
       perDay,
       perBranch: [...perBranchMap.entries()].sort((a, b) => b[1].amount - a[1].amount),
-      weekDays,
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, trips])
+  }, [rows])
 
   if (error) return <ErrorBlock error={error} onRetry={reload} />
   if (!trips || !branches || !teams) return <LoadingBlock />
@@ -233,19 +211,20 @@ export default function Reports() {
             })}
           </ul>
         </Card>
-        <Card title="On-time vs late" action={<span className="text-[11px] font-bold text-ink-60">This week</span>}>
+        <Card title="On-time vs late" action={<span className="text-[11px] font-bold text-ink-60">by weekday</span>}>
           <ul className="flex flex-col gap-3">
-            {stats.weekDays.every((d) => d.on + d.late === 0) && <li className="text-[12px] text-ink-60">No trips yet this week.</li>}
-            {stats.weekDays.map((d, i) => {
+            {stats.n === 0 && <li className="text-[12px] text-ink-60">No trips in this range.</li>}
+            {stats.perDay.map((d, i) => {
               const total = d.on + d.late
+              const rate = total ? Math.round((d.on / total) * 100) : 0
               return (
-                <li key={d.day} className="grid grid-cols-[60px_1fr] items-center gap-3">
+                <li key={i} className="grid grid-cols-[60px_1fr] items-center gap-3">
                   <span className="text-[11px] text-ink-60">{WEEKDAYS[i]}</span>
                   <button
                     type="button"
                     disabled={total === 0}
-                    onClick={() => navigate(`/history?from=${d.day}&to=${d.day}`)}
-                    aria-label={`${WEEKDAYS[i]} ${d.day} — see ${total} trips in Trip History`}
+                    onClick={() => navigate(`/history?from=${applied.from}&to=${applied.to}&dow=${i}`)}
+                    aria-label={`${WEEKDAYS[i]} — see ${total} trips in Trip History`}
                     className="group relative block h-5 cursor-pointer disabled:cursor-default"
                   >
                     <span className="flex h-2.5 gap-1 transition group-hover:brightness-110" style={{ marginTop: 5 }}>
@@ -260,11 +239,11 @@ export default function Reports() {
                     </span>
                     <ChartTip>
                       <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
-                      <p className="mt-0.5 text-[10px] text-ink-60">{d.day}</p>
                       {total === 0 ? (
                         <p className="mt-1 text-[11px] text-ink-60">No trips</p>
                       ) : (
                         <>
+                          <p className="mt-0.5 text-[13px] font-bold text-plum">{rate}% on time</p>
                           <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
                             <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-lime" />On time</span>
                             <span className="text-right font-bold text-ink">{d.on}</span>
@@ -316,7 +295,7 @@ function Kpi({ label, value }: { label: string; value: string }) {
   )
 }
 
-function TripsPerDay({ stats, currency }: { stats: { count: number; amount: number; dur: number }[]; currency: import('@/types').Currency }) {
+function TripsPerDay({ stats, currency }: { stats: { count: number; amount: number; dur: number; on: number; late: number }[]; currency: import('@/types').Currency }) {
   const max = Math.max(1, ...stats.map((d) => d.count))
   const peak = stats.findIndex((d) => d.count === max)
   return (

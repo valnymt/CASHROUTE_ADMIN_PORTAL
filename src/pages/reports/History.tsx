@@ -16,12 +16,14 @@ export default function History() {
   const { data: trips, error, reload } = useApi(() => api.trips.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
-  // Reports can deep-link into this page with ?q=&from=&to=&result= preset.
+  // Reports can deep-link into this page with ?q=&from=&to=&result=&dow= preset.
+  // dow is 0 (Mon) … 4 (Fri); -1 means "any day".
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [result, setResult] = useState<Result>((params.get('result') as Result) || 'all')
   const [from, setFrom] = useState(params.get('from') ?? '')
   const [to, setTo] = useState(params.get('to') ?? '')
+  const dow = Number(params.get('dow') ?? -1)
 
   const branchName = (id: string) => branches?.find((b) => b.id === id)?.name.replace(' Branch', '') ?? id
   const teamName = (id: string) => teams?.find((t) => t.id === id)?.name ?? id
@@ -30,6 +32,7 @@ export default function History() {
     const s = q.trim().toLowerCase()
     return (trips ?? [])
       .filter((t) => (!from || t.date >= from) && (!to || t.date <= to))
+      .filter((t) => dow < 0 || (new Date(`${t.date}T00:00:00`).getDay() + 6) % 7 === dow)
       .filter((t) => result === 'all' || (result === 'on' ? t.onTime : !t.onTime))
       .filter((t) => !s || `${t.id} ${branchName(t.branchId)} ${teamName(t.teamId)} ${t.type}`.toLowerCase().includes(s))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
