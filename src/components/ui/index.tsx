@@ -403,6 +403,121 @@ export function Select({ label, error, options, placeholder, className, id, requ
   )
 }
 
+/**
+ * Form field dropdown with a custom glass-strong popover menu (no native OS
+ * popup). Same label-above layout as `Select`, but the menu matches the
+ * `FilterDropdown` style used elsewhere in the portal.
+ */
+export function SelectMenu({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = 'Select…',
+  error,
+  required,
+  className,
+}: {
+  label?: ReactNode
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+  placeholder?: string
+  error?: string
+  required?: boolean
+  className?: string
+}) {
+  const fid = useId()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const current = options.find((o) => o.value === value)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <Field label={label} error={error} htmlFor={fid} className={className} required={required}>
+      <div ref={ref} className="relative">
+        <button
+          id={fid}
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-invalid={!!error}
+          onClick={() => setOpen((o) => !o)}
+          className={cn(
+            control,
+            'flex items-center justify-between gap-2 text-left',
+            open && 'border-violet/40 bg-white ring-4 ring-violet/10',
+            !current && 'text-ink-38',
+            error && invalid,
+          )}
+        >
+          <span className="truncate">{current?.label ?? placeholder}</span>
+          <IconChevronDown className={cn('size-4 shrink-0 text-ink-60 transition-transform', open && 'rotate-180')} />
+        </button>
+        {open && (
+          <ul
+            role="listbox"
+            aria-label={typeof label === 'string' ? label : placeholder}
+            // bg-white (not glass-strong's rgba) so a form field sitting right below cannot bleed through.
+            className="animate-pop-in absolute top-full left-0 z-40 mt-2 max-h-[280px] w-full min-w-[180px] overflow-auto rounded-[18px] border border-white/95 bg-white p-1.5 shadow-[0_18px_48px_rgba(66,24,105,0.22)]"
+          >
+            {placeholder !== undefined && (
+              <li role="option" aria-selected={value === ''}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange('')
+                    setOpen(false)
+                  }}
+                  className={cn(
+                    'flex w-full items-center justify-between gap-3 rounded-[14px] px-3 py-2 text-left text-[12px] font-semibold transition',
+                    value === '' ? 'bg-periwinkle-18 text-plum' : 'text-ink-60 hover:bg-ink-4',
+                  )}
+                >
+                  {placeholder}
+                  {value === '' && <span className="size-1.5 rounded-full bg-violet" />}
+                </button>
+              </li>
+            )}
+            {options.map((o) => {
+              const on = o.value === value
+              return (
+                <li key={o.value} role="option" aria-selected={on}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(o.value)
+                      setOpen(false)
+                    }}
+                    className={cn(
+                      'flex w-full items-center justify-between gap-3 rounded-[14px] px-3 py-2 text-left text-[12px] font-semibold transition',
+                      on ? 'bg-periwinkle-18 text-plum' : 'text-ink hover:bg-ink-4',
+                    )}
+                  >
+                    {o.label}
+                    {on && <span className="size-1.5 rounded-full bg-violet" />}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </Field>
+  )
+}
+
 type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: ReactNode; error?: string; hint?: ReactNode }
 
 export function Textarea({ label, error, hint, className, id, required, ...rest }: TextareaProps) {

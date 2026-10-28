@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { IconDownload } from '@/components/icons'
-import { Button, Card, ErrorBlock, LoadingBlock, PageHeader, Select } from '@/components/ui'
+import { Button, Card, ErrorBlock, LoadingBlock, PageHeader, SelectMenu } from '@/components/ui'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { cn } from '@/lib/cn'
 import { exportCsv, exportExcel } from '@/lib/export'
-import { fmtMoney, fmtMoneyShort, isoDay } from '@/lib/format'
+import { fmtMoney, isoDay } from '@/lib/format'
 import { api } from '@/services/api'
 import { useApi } from '@/store/data'
 
@@ -139,10 +139,10 @@ export default function Reports() {
             <DatePicker label="From" placeholder="Start date" value={draft.from} max={draft.to} onChange={(v) => setF('from', v)} rangeStart={draft.from} rangeEnd={draft.to} clearable={false} />
             <DatePicker label="To" placeholder="End date" value={draft.to} min={draft.from} onChange={(v) => setF('to', v)} rangeStart={draft.from} rangeEnd={draft.to} clearable={false} align="right" />
           </div>
-          <Select label="Branch" value={draft.branch} onChange={(e) => setF('branch', e.target.value)} placeholder="All branches" options={branches.filter((b) => b.type === 'Branch').map((b) => ({ value: b.id, label: b.name }))} />
-          <Select label="Type" value={draft.type} onChange={(e) => setF('type', e.target.value)} placeholder="All types" options={[{ value: 'Deposit', label: 'Deposit' }, { value: 'Withdrawal', label: 'Withdrawal' }]} />
-          <Select label="Status" value={draft.status} onChange={(e) => setF('status', e.target.value)} placeholder="All" options={[{ value: 'on', label: 'On time' }, { value: 'late', label: 'Late' }]} />
-          <Select label="Team" value={draft.team} onChange={(e) => setF('team', e.target.value)} placeholder="All teams" options={teams.map((t) => ({ value: t.id, label: t.name }))} />
+          <SelectMenu label="Branch" value={draft.branch} onChange={(v) => setF('branch', v)} placeholder="All branches" options={branches.filter((b) => b.type === 'Branch').map((b) => ({ value: b.id, label: b.name }))} />
+          <SelectMenu label="Type" value={draft.type} onChange={(v) => setF('type', v)} placeholder="All types" options={[{ value: 'Deposit', label: 'Deposit' }, { value: 'Withdrawal', label: 'Withdrawal' }]} />
+          <SelectMenu label="Status" value={draft.status} onChange={(v) => setF('status', v)} placeholder="All" options={[{ value: 'on', label: 'On time' }, { value: 'late', label: 'Late' }]} />
+          <SelectMenu label="Team" value={draft.team} onChange={(v) => setF('team', v)} placeholder="All teams" options={teams.map((t) => ({ value: t.id, label: t.name }))} />
           <div className="flex gap-2">
             <Button type="submit" className="flex-1 xl:flex-none">
               Apply
@@ -163,7 +163,7 @@ export default function Reports() {
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <Kpi label="Trips completed" value={String(stats.n)} />
-        <Kpi label="Amount moved" value={fmtMoneyShort(stats.amount, currency)} />
+        <Kpi label="Amount moved" value={fmtMoney(stats.amount, currency)} />
         <Kpi label="Avg trip duration" value={`${stats.avg} min`} />
         <Kpi label="On-time rate" value={`${stats.onTime}%`} />
       </div>
