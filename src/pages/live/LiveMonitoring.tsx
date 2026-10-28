@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { IconAlert } from '@/components/icons'
-import { Badge, Card, ChipGroup, ErrorBlock, LoadingBlock, statusTone } from '@/components/ui'
+import { Badge, Card, ErrorBlock, FilterDropdown, LoadingBlock, statusTone } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { fmtAge, fmtMoney } from '@/lib/format'
 import { api } from '@/services/api'
@@ -94,14 +94,15 @@ export default function LiveMonitoring() {
               {vehicles.length} teams on the road · updated {fmtAge(new Date(updatedAt))} {fmtAge(new Date(updatedAt)) === 'just now' ? '' : 'ago'}
             </p>
           </div>
-          <ChipGroup
+          <FilterDropdown
             label="Map filter"
             value={filter}
             onChange={setFilter}
+            defaultValue="all"
             options={[
-              { value: 'all', label: 'All' },
-              { value: 'transit', label: 'In Transit' },
-              { value: 'stale', label: `Stale GPS${staleCount ? ` (${staleCount})` : ''}` },
+              { value: 'all', label: `All · ${vehicles.length}` },
+              { value: 'transit', label: `In Transit · ${vehicles.filter((v) => v.r.status === 'In Transit' && !v.stale).length}` },
+              { value: 'stale', label: `Stale GPS${staleCount ? ` · ${staleCount}` : ''}` },
             ]}
           />
         </div>

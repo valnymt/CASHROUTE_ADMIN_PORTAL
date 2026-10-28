@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Badge, ChipGroup, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
+import { Badge, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { fmtDay, fmtMoney } from '@/lib/format'
 import { api } from '@/services/api'
@@ -55,10 +55,11 @@ export default function Requests() {
       <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
         <SearchInput value={q} onChange={setQ} placeholder="Search request ID or branch…" className="lg:w-[300px]" />
         <div className="flex flex-wrap items-center gap-2">
-          <ChipGroup
+          <FilterDropdown
             label="Created by"
             value={scope}
             onChange={setScope}
+            defaultValue="all"
             options={[
               { value: 'all', label: 'All requests' },
               { value: 'mine', label: 'Created by me' },

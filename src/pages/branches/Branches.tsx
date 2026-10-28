@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Button, ChipGroup, ErrorBlock, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
+import { Button, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
@@ -43,6 +43,11 @@ export default function Branches() {
   const setEditing = (b: Branch | 'new' | null) =>
     navigate(b === null ? '/branches' : b === 'new' ? '/branches/create' : `/branches/${b.id}/edit`)
 
+  const counts = useMemo(() => {
+    const d = data ?? []
+    return { all: d.length, active: d.filter((b) => b.active).length, inactive: d.filter((b) => !b.active).length }
+  }, [data])
+
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
     return (data ?? []).filter(
@@ -67,14 +72,15 @@ export default function Branches() {
 
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <SearchInput value={q} onChange={setQ} placeholder="Search by code or name…" className="sm:w-[320px]" />
-        <ChipGroup
+        <FilterDropdown
           label="Status"
           value={status}
           onChange={setStatus}
+          defaultValue="all"
           options={[
-            { value: 'all', label: 'All' },
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' },
+            { value: 'all', label: `All · ${counts.all}` },
+            { value: 'active', label: `Active · ${counts.active}` },
+            { value: 'inactive', label: `Inactive · ${counts.inactive}` },
           ]}
         />
       </div>

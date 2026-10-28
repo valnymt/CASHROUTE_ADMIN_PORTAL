@@ -21,7 +21,7 @@ const checkerCancelled = (r: CashRequest) =>
 /** AP-06 · Pending Approvals. */
 export default function Approvals() {
   const { user } = useAuth()
-  const isReadOnly = user?.role === 'Admin'
+  const isReadOnly = user?.role === 'Super Admin'
   const navigate = useNavigate()
   const { data: requests, error, reload } = useApi(() => api.requests.list())
   const { data: branches } = useApi(() => api.branches.list())
