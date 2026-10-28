@@ -24,7 +24,7 @@ const tomorrow = () => {
 export default function NewRequest() {
   const { id } = useParams()
   const editing = !!id
-  const { user, isMaker } = useAuth()
+  const { user, isMaker, isSuperAdmin } = useAuth()
   const navigate = useNavigate()
   const invalidate = useInvalidate()
   const toast = useToast()
@@ -140,7 +140,7 @@ export default function NewRequest() {
         <div className="rounded-[18px] bg-amber-16 px-4 py-3 text-[12px] font-semibold text-amber">{editBlocked}</div>
       )}
 
-      {!isMaker && (
+      {!isMaker && isSuperAdmin && (
         <div className="rounded-[18px] bg-amber-16 px-4 py-3 text-[12px] font-semibold text-amber">
           Your role ({user?.role}) can review requests but not create them.
         </div>
@@ -195,7 +195,7 @@ export default function NewRequest() {
             <Button variant="ghost" onClick={() => (editing ? navigate(`/requests/${id}`) : setForm(blank()))}>
               Cancel
             </Button>
-            <Button type="submit" loading={busy} disabled={!isMaker || !!editBlocked}>
+            <Button type="submit" loading={busy} disabled={!isMaker || isSuperAdmin || !!editBlocked}>
               {editing ? 'Save changes' : 'Submit for approval'}
             </Button>
           </div>

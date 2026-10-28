@@ -11,6 +11,7 @@ interface AuthState {
   logout: () => Promise<void>
   isMaker: boolean
   isChecker: boolean
+  isSuperAdmin: boolean
 }
 
 const AuthCtx = createContext<AuthState | null>(null)
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
-    await api.auth.logout().catch(() => {})
+    await api.auth.logout().catch(() => { })
     setLoggedOut(true)
     setUser(null)
   }, [])
@@ -50,8 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loggedOut,
         login,
         logout,
-        isMaker: role === 'Maker' || role === 'Super Admin',
+        isMaker: role === 'Maker',
         isChecker: role === 'Checker' || role === 'Super Admin',
+        isSuperAdmin: role === 'Super Admin',
       }}
     >
       {children}
