@@ -19,6 +19,7 @@ export default function RequestDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { user, isChecker } = useAuth()
+  const isReadOnly = user?.role === 'Super Admin'
   const invalidate = useInvalidate()
   const toast = useToast()
   const { data: r, error, reload } = useApi(() => api.requests.get(id), [id])
@@ -134,12 +135,17 @@ export default function RequestDetail() {
               </p>
             )}
 
-            {r.status === 'Pending' && (
+            {!isReadOnly && r.status === 'Pending' && (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <Button onClick={approve} loading={busy} disabled={!canAct}>
                   Approve
                 </Button>
-                <Button variant="danger-soft" onClick={() => setRejectOpen(true)} disabled={!canAct}>
+
+                <Button
+                  variant="danger-soft"
+                  onClick={() => setRejectOpen(true)}
+                  disabled={!canAct}
+                >
                   Reject
                 </Button>
               </div>
@@ -149,8 +155,11 @@ export default function RequestDetail() {
                 Another Checker must review your request
               </p>
             )}
-            {r.status === 'Approved' && (
-              <Button className="mt-4 w-full" onClick={() => setAssignOpen(true)}>
+            {!isReadOnly && r.status === 'Approved' && (
+              <Button
+                className="mt-4 w-full"
+                onClick={() => setAssignOpen(true)}
+              >
                 Assign delivery team
               </Button>
             )}
@@ -159,8 +168,12 @@ export default function RequestDetail() {
                 Track on live map
               </Button>
             )}
-            {canCancel && (
-              <Button variant="danger-soft" className="mt-3 w-full" onClick={() => setCancelOpen(true)}>
+            {!isReadOnly && canCancel && (
+              <Button
+                variant="danger-soft"
+                className="mt-3 w-full"
+                onClick={() => setCancelOpen(true)}
+              >
                 Cancel request
               </Button>
             )}
@@ -184,7 +197,7 @@ export default function RequestDetail() {
       </div>
 
       <ReasonModal
-        open={rejectOpen}
+        open={!isReadOnly && rejectOpen}
         onClose={() => setRejectOpen(false)}
         title={`Reject ${r.id}`}
         subtitle="The Maker will be notified. A reason is required."
@@ -213,7 +226,7 @@ export default function RequestDetail() {
           finish(`${r.id} cancelled.`, 'cancelled')
         }}
       />
-      <AssignDrawer open={assignOpen} request={r} teams={teams} users={users} onClose={() => setAssignOpen(false)} />
+      <AssignDrawer open={!isReadOnly && assignOpen} request={r} teams={teams} users={users} onClose={() => setAssignOpen(false)} />
     </>
   )
 }

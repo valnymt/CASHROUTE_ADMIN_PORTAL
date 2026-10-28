@@ -21,6 +21,7 @@ const checkerCancelled = (r: CashRequest) =>
 /** AP-06 · Pending Approvals. */
 export default function Approvals() {
   const { user } = useAuth()
+  const isReadOnly = user?.role === 'Admin'
   const navigate = useNavigate()
   const { data: requests, error, reload } = useApi(() => api.requests.list())
   const { data: branches } = useApi(() => api.branches.list())
@@ -102,9 +103,17 @@ export default function Approvals() {
             { header: 'Age', cell: (r) => fmtAge(r.createdAt), hideOnMobile: true },
             { header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
           ]}
+          // action={(r) => (
+          //   <RowLink onClick={() => navigate(`/approvals/${r.id}`)}>
+          //     {r.status === 'Pending' && r.createdBy !== user?.id ? 'Review ›' : 'View ›'}
+          //   </RowLink>
           action={(r) => (
             <RowLink onClick={() => navigate(`/approvals/${r.id}`)}>
-              {r.status === 'Pending' && r.createdBy !== user?.id ? 'Review ›' : 'View ›'}
+              {isReadOnly
+                ? 'View ›'
+                : r.status === 'Pending' && r.createdBy !== user?.id
+                  ? 'Review ›'
+                  : 'View ›'}
             </RowLink>
           )}
         />
