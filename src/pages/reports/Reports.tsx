@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { IconDownload } from '@/components/icons'
 import { Button, Card, ErrorBlock, LoadingBlock, PageHeader, SelectMenu } from '@/components/ui'
 import { DatePicker } from '@/components/ui/DatePicker'
@@ -175,26 +175,43 @@ export default function Reports() {
         <Card title="Amount moved per branch">
           <ul className="flex flex-col gap-3">
             {stats.perBranch.length === 0 && <li className="text-[12px] text-ink-60">No data.</li>}
-            {stats.perBranch.map(([id, amt]) => (
-              <li key={id} className="grid grid-cols-[70px_1fr] items-center gap-3" title={fmtMoney(amt, currency)}>
-                <span className="truncate text-[11px] text-ink-60">{branchName(id)}</span>
-                <span className="h-2.5 rounded-full bg-gradient-to-r from-violet to-lavender" style={{ width: `${(amt / stats.perBranch[0]![1]) * 100}%` }} />
-              </li>
-            ))}
+            {stats.perBranch.map(([id, amt]) => {
+              const share = stats.amount ? Math.round((amt / stats.amount) * 100) : 0
+              return (
+                <li key={id} className="group relative grid grid-cols-[70px_1fr] items-center gap-3">
+                  <span className="truncate text-[11px] text-ink-60">{branchName(id)}</span>
+                  <span className="h-2.5 rounded-full bg-gradient-to-r from-violet to-lavender" style={{ width: `${(amt / stats.perBranch[0]![1]) * 100}%` }} />
+                  <ChartTip>
+                    <p className="text-[11px] font-bold text-ink">{branchName(id)}</p>
+                    <p className="mt-0.5 text-[13px] font-bold text-plum">{fmtMoney(amt, currency)}</p>
+                    <p className="mt-0.5 text-[10px] text-ink-60">{share}% of total moved</p>
+                  </ChartTip>
+                </li>
+              )
+            })}
           </ul>
         </Card>
         <Card title="On-time vs late">
           <ul className="flex flex-col gap-3">
             {stats.weeks.length === 0 && <li className="text-[12px] text-ink-60">No data.</li>}
-            {stats.weeks.map(([w, { on, late }]) => (
-              <li key={w} className="grid grid-cols-[60px_1fr] items-center gap-3" title={`${on} on time · ${late} late`}>
-                <span className="text-[11px] text-ink-60">Week {w}</span>
-                <span className="flex h-2.5 gap-1">
-                  <span className="rounded-full bg-lime" style={{ flex: on || 0.0001 }} />
-                  {late > 0 && <span className="rounded-full bg-violet" style={{ flex: Math.max(late, (on + late) * 0.06) }} />}
-                </span>
-              </li>
-            ))}
+            {stats.weeks.map(([w, { on, late }]) => {
+              const rate = on + late ? Math.round((on / (on + late)) * 100) : 0
+              return (
+                <li key={w} className="group relative grid grid-cols-[60px_1fr] items-center gap-3">
+                  <span className="text-[11px] text-ink-60">Week {w}</span>
+                  <span className="flex h-2.5 gap-1">
+                    <span className="rounded-full bg-lime" style={{ flex: on || 0.0001 }} />
+                    {late > 0 && <span className="rounded-full bg-violet" style={{ flex: Math.max(late, (on + late) * 0.06) }} />}
+                  </span>
+                  <ChartTip>
+                    <p className="text-[11px] font-bold text-ink">Week {w}</p>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink"><span className="size-1.5 rounded-full bg-lime" /> {on} on time</p>
+                    <p className="flex items-center gap-1.5 text-[11px] text-ink"><span className="size-1.5 rounded-full bg-violet" /> {late} late</p>
+                    <p className="mt-1 text-[10px] font-bold text-plum">{rate}% on-time rate</p>
+                  </ChartTip>
+                </li>
+              )
+            })}
           </ul>
           <div className="mt-4 flex gap-4 text-[11px] text-ink-60">
             <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-lime" /> On time</span>
@@ -204,6 +221,20 @@ export default function Reports() {
       </div>
 
     </>
+  )
+}
+
+/** Floating hover-tooltip used by the Reports charts. Needs a `group relative` parent. */
+function ChartTip({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="tooltip"
+      className="pointer-events-none invisible absolute -top-2 left-1/2 z-20 min-w-[150px] -translate-x-1/2 -translate-y-full rounded-[14px] border border-white/95 bg-white px-3 py-2 text-left opacity-0 shadow-[0_14px_38px_rgba(66,24,105,0.22)] transition group-hover:visible group-hover:opacity-100"
+    >
+      {children}
+      {/* little pointer under the bubble */}
+      <span className="absolute top-full left-1/2 -mt-1.5 size-3 -translate-x-1/2 rotate-45 border-r border-b border-white/95 bg-white" />
+    </div>
   )
 }
 
@@ -219,20 +250,29 @@ function Kpi({ label, value }: { label: string; value: string }) {
 function TripsPerDay({ values }: { values: number[] }) {
   const max = Math.max(1, ...values)
   const peak = values.indexOf(max)
+  const total = values.reduce((a, b) => a + b, 0)
   return (
     <div className="flex h-[150px] items-end justify-between gap-2">
-      {values.map((v, i) => (
-        <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5" title={`${WEEKDAYS[i]}: ${v} trips`}>
-          <span className="text-[10px] font-bold text-ink-60">{v || ''}</span>
-          <div className="flex min-h-0 w-full flex-1 items-end justify-center">
-            <div
-              className={cn('w-full max-w-[26px] rounded-[10px]', i === peak ? 'bg-gradient-to-b from-lime to-lime-dark' : 'bg-gradient-to-b from-lavender to-violet')}
-              style={{ height: `${Math.max(4, (v / max) * 100)}%` }}
-            />
+      {values.map((v, i) => {
+        const share = total ? Math.round((v / total) * 100) : 0
+        return (
+          <div key={i} className="group relative flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+            <span className="text-[10px] font-bold text-ink-60">{v || ''}</span>
+            <div className="flex min-h-0 w-full flex-1 items-end justify-center">
+              <div
+                className={cn('w-full max-w-[26px] rounded-[10px] transition group-hover:brightness-110', i === peak ? 'bg-gradient-to-b from-lime to-lime-dark' : 'bg-gradient-to-b from-lavender to-violet')}
+                style={{ height: `${Math.max(4, (v / max) * 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-ink-60">{WEEKDAYS[i]}</span>
+            <ChartTip>
+              <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
+              <p className="mt-0.5 text-[13px] font-bold text-plum">{v} {v === 1 ? 'trip' : 'trips'}</p>
+              <p className="mt-0.5 text-[10px] text-ink-60">{share}% of the week</p>
+            </ChartTip>
           </div>
-          <span className="text-[10px] text-ink-60">{WEEKDAYS[i]}</span>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
