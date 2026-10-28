@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { IconDownload } from '@/components/icons'
 import { Button, Card, ErrorBlock, LoadingBlock, PageHeader, SelectMenu } from '@/components/ui'
 import { DatePicker } from '@/components/ui/DatePicker'
@@ -37,6 +38,7 @@ function isoWeek(d: Date) {
 
 /** AP-10 · Reports & Analytics (the trip log itself lives on Trip History). */
 export default function Reports() {
+  const navigate = useNavigate()
   const { data: trips, error, reload } = useApi(() => api.trips.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
@@ -68,19 +70,36 @@ export default function Reports() {
     const avg = n ? Math.round(rows.reduce((s, t) => s + t.durationMin, 0) / n) : 0
     const onTime = n ? Math.round((rows.filter((t) => t.onTime).length / n) * 100) : 0
 
-    const perDay = WEEKDAYS.map(() => 0)
-    rows.forEach((t) => perDay[(new Date(`${t.date}T00:00:00`).getDay() + 6) % 7]!++)
+    // Per weekday: count, amount moved and average duration.
+    const perDay = WEEKDAYS.map(() => ({ count: 0, amount: 0, dur: 0 }))
+    rows.forEach((t) => {
+      const i = (new Date(`${t.date}T00:00:00`).getDay() + 6) % 7
+      perDay[i]!.count++
+      perDay[i]!.amount += t.amount
+      perDay[i]!.dur += t.durationMin
+    })
 
-    const perBranch = new Map<string, number>()
-    rows.forEach((t) => perBranch.set(t.branchId, (perBranch.get(t.branchId) ?? 0) + t.amount))
+    // Per branch: trip count, total amount, deposit vs withdrawal split.
+    const perBranchMap = new Map<string, { count: number; amount: number; deposits: number; withdrawals: number }>()
+    rows.forEach((t) => {
+      const e = perBranchMap.get(t.branchId) ?? { count: 0, amount: 0, deposits: 0, withdrawals: 0 }
+      e.count++
+      e.amount += t.amount
+      if (t.type === 'Deposit') e.deposits++
+      else e.withdrawals++
+      perBranchMap.set(t.branchId, e)
+    })
 
-    const weeks = new Map<number, { on: number; late: number }>()
+    // Per ISO week: on-time/late counts, total amount, date range.
+    const weeksMap = new Map<number, { on: number; late: number; amount: number; dates: string[] }>()
     rows.forEach((t) => {
       const w = isoWeek(new Date(`${t.date}T00:00:00`))
-      const e = weeks.get(w) ?? { on: 0, late: 0 }
+      const e = weeksMap.get(w) ?? { on: 0, late: 0, amount: 0, dates: [] }
       if (t.onTime) e.on++
       else e.late++
-      weeks.set(w, e)
+      e.amount += t.amount
+      e.dates.push(t.date)
+      weeksMap.set(w, e)
     })
 
     return {
@@ -89,8 +108,8 @@ export default function Reports() {
       avg,
       onTime,
       perDay,
-      perBranch: [...perBranch.entries()].sort((a, b) => b[1] - a[1]),
-      weeks: [...weeks.entries()].sort((a, b) => a[0] - b[0]).slice(-4),
+      perBranch: [...perBranchMap.entries()].sort((a, b) => b[1].amount - a[1].amount),
+      weeks: [...weeksMap.entries()].sort((a, b) => a[0] - b[0]).slice(-4),
     }
   }, [rows])
 
@@ -170,22 +189,36 @@ export default function Reports() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Trips per day">
-          <TripsPerDay values={stats.perDay} />
+          <TripsPerDay stats={stats.perDay} currency={currency} />
         </Card>
         <Card title="Amount moved per branch">
           <ul className="flex flex-col gap-3">
             {stats.perBranch.length === 0 && <li className="text-[12px] text-ink-60">No data.</li>}
-            {stats.perBranch.map(([id, amt]) => {
-              const share = stats.amount ? Math.round((amt / stats.amount) * 100) : 0
+            {stats.perBranch.map(([id, e]) => {
+              const avgSize = e.count ? Math.round(e.amount / e.count) : 0
               return (
-                <li key={id} className="group relative grid grid-cols-[70px_1fr] items-center gap-3">
+                <li key={id} className="grid grid-cols-[70px_1fr] items-center gap-3">
                   <span className="truncate text-[11px] text-ink-60">{branchName(id)}</span>
-                  <span className="h-2.5 rounded-full bg-gradient-to-r from-violet to-lavender" style={{ width: `${(amt / stats.perBranch[0]![1]) * 100}%` }} />
-                  <ChartTip>
-                    <p className="text-[11px] font-bold text-ink">{branchName(id)}</p>
-                    <p className="mt-0.5 text-[13px] font-bold text-plum">{fmtMoney(amt, currency)}</p>
-                    <p className="mt-0.5 text-[10px] text-ink-60">{share}% of total moved</p>
-                  </ChartTip>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/history?q=${encodeURIComponent(branchName(id))}&from=${applied.from}&to=${applied.to}`)}
+                    aria-label={`${branchName(id)} — see ${e.count} trips in Trip History`}
+                    className="group relative block h-5 cursor-pointer rounded-full"
+                  >
+                    {/* The real bar — hover target. */}
+                    <span className="block h-2.5 rounded-full bg-gradient-to-r from-violet to-lavender transition group-hover:brightness-110 group-hover:shadow-glow-violet" style={{ width: `${(e.amount / stats.perBranch[0]![1].amount) * 100}%`, marginTop: 5 }} />
+                    <ChartTip>
+                      <p className="text-[11px] font-bold text-ink">{branchName(id)}</p>
+                      <p className="mt-0.5 text-[13px] font-bold text-plum">{fmtMoney(e.amount, currency)}</p>
+                      <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-ink-60">
+                        <span>Trips</span><span className="text-right text-ink">{e.count}</span>
+                        <span>Avg trip</span><span className="text-right text-ink">{fmtMoney(avgSize, currency)}</span>
+                        <span>Deposits</span><span className="text-right text-ink">{e.deposits}</span>
+                        <span>Withdrawals</span><span className="text-right text-ink">{e.withdrawals}</span>
+                      </div>
+                      <p className="mt-1.5 text-[10px] font-bold text-violet">Click to open in Trip History ›</p>
+                    </ChartTip>
+                  </button>
                 </li>
               )
             })}
@@ -194,21 +227,37 @@ export default function Reports() {
         <Card title="On-time vs late">
           <ul className="flex flex-col gap-3">
             {stats.weeks.length === 0 && <li className="text-[12px] text-ink-60">No data.</li>}
-            {stats.weeks.map(([w, { on, late }]) => {
-              const rate = on + late ? Math.round((on / (on + late)) * 100) : 0
+            {stats.weeks.map(([w, e]) => {
+              const dates = e.dates.sort()
+              const weekFrom = dates[0]!
+              const weekTo = dates[dates.length - 1]!
               return (
-                <li key={w} className="group relative grid grid-cols-[60px_1fr] items-center gap-3">
+                <li key={w} className="grid grid-cols-[60px_1fr] items-center gap-3">
                   <span className="text-[11px] text-ink-60">Week {w}</span>
-                  <span className="flex h-2.5 gap-1">
-                    <span className="rounded-full bg-lime" style={{ flex: on || 0.0001 }} />
-                    {late > 0 && <span className="rounded-full bg-violet" style={{ flex: Math.max(late, (on + late) * 0.06) }} />}
-                  </span>
-                  <ChartTip>
-                    <p className="text-[11px] font-bold text-ink">Week {w}</p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink"><span className="size-1.5 rounded-full bg-lime" /> {on} on time</p>
-                    <p className="flex items-center gap-1.5 text-[11px] text-ink"><span className="size-1.5 rounded-full bg-violet" /> {late} late</p>
-                    <p className="mt-1 text-[10px] font-bold text-plum">{rate}% on-time rate</p>
-                  </ChartTip>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/history?from=${weekFrom}&to=${weekTo}`)}
+                    aria-label={`Week ${w} — see ${e.on + e.late} trips in Trip History`}
+                    className="group relative block h-5 cursor-pointer"
+                  >
+                    <span className="flex h-2.5 gap-1 transition group-hover:brightness-110" style={{ marginTop: 5 }}>
+                      <span className="rounded-full bg-lime" style={{ flex: e.on || 0.0001 }} />
+                      {e.late > 0 && <span className="rounded-full bg-violet" style={{ flex: Math.max(e.late, (e.on + e.late) * 0.06) }} />}
+                    </span>
+                    <ChartTip>
+                      <p className="text-[11px] font-bold text-ink">Week {w}</p>
+                      <p className="mt-0.5 text-[10px] text-ink-60">{weekFrom} → {weekTo}</p>
+                      <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+                        <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-lime" />On time</span>
+                        <span className="text-right font-bold text-ink">{e.on}</span>
+                        <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-violet" />Late</span>
+                        <span className="text-right font-bold text-ink">{e.late}</span>
+                        <span className="text-ink-60">Amount</span>
+                        <span className="text-right font-bold text-plum">{fmtMoney(e.amount, currency)}</span>
+                      </div>
+                      <p className="mt-1.5 text-[10px] font-bold text-violet">Click to open in Trip History ›</p>
+                    </ChartTip>
+                  </button>
                 </li>
               )
             })}
@@ -247,29 +296,36 @@ function Kpi({ label, value }: { label: string; value: string }) {
   )
 }
 
-function TripsPerDay({ values }: { values: number[] }) {
-  const max = Math.max(1, ...values)
-  const peak = values.indexOf(max)
-  const total = values.reduce((a, b) => a + b, 0)
+function TripsPerDay({ stats, currency }: { stats: { count: number; amount: number; dur: number }[]; currency: import('@/types').Currency }) {
+  const max = Math.max(1, ...stats.map((d) => d.count))
+  const peak = stats.findIndex((d) => d.count === max)
   return (
     <div className="flex h-[150px] items-end justify-between gap-2">
-      {values.map((v, i) => {
-        const share = total ? Math.round((v / total) * 100) : 0
+      {stats.map((d, i) => {
+        const avgDur = d.count ? Math.round(d.dur / d.count) : 0
         return (
-          <div key={i} className="group relative flex h-full flex-1 flex-col items-center justify-end gap-1.5">
-            <span className="text-[10px] font-bold text-ink-60">{v || ''}</span>
+          <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+            <span className="text-[10px] font-bold text-ink-60">{d.count || ''}</span>
             <div className="flex min-h-0 w-full flex-1 items-end justify-center">
-              <div
-                className={cn('w-full max-w-[26px] rounded-[10px] transition group-hover:brightness-110', i === peak ? 'bg-gradient-to-b from-lime to-lime-dark' : 'bg-gradient-to-b from-lavender to-violet')}
-                style={{ height: `${Math.max(4, (v / max) * 100)}%` }}
-              />
+              {/* The bar itself is the hover target so the tooltip only shows when touching it. */}
+              <div className="group relative flex w-full justify-center">
+                <div
+                  className={cn('w-full max-w-[26px] rounded-[10px] transition group-hover:brightness-110 group-hover:scale-[1.05]', i === peak ? 'bg-gradient-to-b from-lime to-lime-dark' : 'bg-gradient-to-b from-lavender to-violet')}
+                  style={{ height: `${Math.max(4, (d.count / max) * 100)}%`, minHeight: 10 }}
+                />
+                <ChartTip>
+                  <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
+                  <p className="mt-0.5 text-[13px] font-bold text-plum">{d.count} {d.count === 1 ? 'trip' : 'trips'}</p>
+                  {d.count > 0 && (
+                    <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-ink-60">
+                      <span>Amount</span><span className="text-right text-ink">{fmtMoney(d.amount, currency)}</span>
+                      <span>Avg duration</span><span className="text-right text-ink">{avgDur} min</span>
+                    </div>
+                  )}
+                </ChartTip>
+              </div>
             </div>
             <span className="text-[10px] text-ink-60">{WEEKDAYS[i]}</span>
-            <ChartTip>
-              <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
-              <p className="mt-0.5 text-[13px] font-bold text-plum">{v} {v === 1 ? 'trip' : 'trips'}</p>
-              <p className="mt-0.5 text-[10px] text-ink-60">{share}% of the week</p>
-            </ChartTip>
           </div>
         )
       })}

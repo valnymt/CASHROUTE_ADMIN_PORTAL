@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { DatePicker } from '@/components/ui/DatePicker'
@@ -16,10 +16,12 @@ export default function History() {
   const { data: trips, error, reload } = useApi(() => api.trips.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
-  const [q, setQ] = useState('')
-  const [result, setResult] = useState<Result>('all')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
+  // Reports can deep-link into this page with ?q=&from=&to=&result= preset.
+  const [params] = useSearchParams()
+  const [q, setQ] = useState(params.get('q') ?? '')
+  const [result, setResult] = useState<Result>((params.get('result') as Result) || 'all')
+  const [from, setFrom] = useState(params.get('from') ?? '')
+  const [to, setTo] = useState(params.get('to') ?? '')
 
   const branchName = (id: string) => branches?.find((b) => b.id === id)?.name.replace(' Branch', '') ?? id
   const teamName = (id: string) => teams?.find((t) => t.id === id)?.name ?? id
