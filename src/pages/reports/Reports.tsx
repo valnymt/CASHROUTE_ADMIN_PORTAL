@@ -212,8 +212,11 @@ export default function Reports() {
           </ul>
         </Card>
         <Card title="On-time vs late" action={<span className="text-[11px] font-bold text-ink-60">by weekday</span>}>
+          {stats.n === 0 ? (
+            <p className="text-[12px] text-ink-60">No trips in this range.</p>
+          ) : (
+          <>
           <ul className="flex flex-col gap-3">
-            {stats.n === 0 && <li className="text-[12px] text-ink-60">No trips in this range.</li>}
             {stats.perDay.map((d, i) => {
               const total = d.on + d.late
               const rate = total ? Math.round((d.on / total) * 100) : 0
@@ -265,6 +268,8 @@ export default function Reports() {
             <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-lime" /> On time</span>
             <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-violet" /> Late</span>
           </div>
+          </>
+          )}
         </Card>
       </div>
 
@@ -298,31 +303,35 @@ function Kpi({ label, value }: { label: string; value: string }) {
 function TripsPerDay({ stats, currency }: { stats: { count: number; amount: number; dur: number; on: number; late: number }[]; currency: import('@/types').Currency }) {
   const max = Math.max(1, ...stats.map((d) => d.count))
   const peak = stats.findIndex((d) => d.count === max)
+  const BAR_AREA = 120 // px — fixed drawing area so bar heights are directly proportional to counts.
   return (
-    <div className="flex h-[150px] items-end justify-between gap-2">
+    <div className="flex items-end justify-between gap-2">
       {stats.map((d, i) => {
         const avgDur = d.count ? Math.round(d.dur / d.count) : 0
+        const h = d.count === 0 ? 4 : Math.round((d.count / max) * BAR_AREA)
         return (
-          <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
-            <span className="text-[10px] font-bold text-ink-60">{d.count || ''}</span>
-            <div className="flex min-h-0 w-full flex-1 items-end justify-center">
-              {/* The bar itself is the hover target so the tooltip only shows when touching it. */}
-              <div className="group relative flex w-full justify-center">
-                <div
-                  className={cn('w-full max-w-[26px] rounded-[10px] transition group-hover:brightness-110 group-hover:scale-[1.05]', i === peak ? 'bg-gradient-to-b from-lime to-lime-dark' : 'bg-gradient-to-b from-lavender to-violet')}
-                  style={{ height: `${Math.max(4, (d.count / max) * 100)}%`, minHeight: 10 }}
-                />
-                <ChartTip>
-                  <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
-                  <p className="mt-0.5 text-[13px] font-bold text-plum">{d.count} {d.count === 1 ? 'trip' : 'trips'}</p>
-                  {d.count > 0 && (
-                    <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-ink-60">
-                      <span>Amount</span><span className="text-right text-ink">{fmtMoney(d.amount, currency)}</span>
-                      <span>Avg duration</span><span className="text-right text-ink">{avgDur} min</span>
-                    </div>
-                  )}
-                </ChartTip>
-              </div>
+          <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+            <span className="h-4 text-[10px] font-bold text-ink-60">{d.count || ''}</span>
+            {/* The bar itself is the hover target so the tooltip only appears when touching it. */}
+            <div className="group relative flex w-full justify-center" style={{ height: BAR_AREA }}>
+              <div
+                className={cn(
+                  'w-full max-w-[26px] self-end rounded-[10px] transition group-hover:brightness-110 group-hover:scale-[1.04]',
+                  d.count === 0 ? 'bg-ink-9' : i === peak ? 'bg-gradient-to-b from-lime to-lime-dark' : 'bg-gradient-to-b from-lavender to-violet',
+                )}
+                style={{ height: h }}
+              />
+              <ChartTip>
+                <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
+                <p className="mt-0.5 text-[13px] font-bold text-plum">{d.count} {d.count === 1 ? 'trip' : 'trips'}</p>
+                {d.count > 0 && (
+                  <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-ink-60">
+                    <span>Amount</span><span className="text-right text-ink">{fmtMoney(d.amount, currency)}</span>
+                    <span>Avg duration</span><span className="text-right text-ink">{avgDur} min</span>
+                    <span>On time</span><span className="text-right text-ink">{d.on} / {d.count}</span>
+                  </div>
+                )}
+              </ChartTip>
             </div>
             <span className="text-[10px] text-ink-60">{WEEKDAYS[i]}</span>
           </div>
