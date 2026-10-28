@@ -172,8 +172,8 @@ export default function NewRequest() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <Select label="Branch" value={form.branchId} onChange={(e) => set('branchId', e.target.value)} options={branchOptions} error={errors.branchId} />
-            <Input label="Pickup (auto)" value={pickup} readOnly tabIndex={-1} className="[&_input]:bg-ink-6" />
-            <Input label="Drop-off (auto)" value={dropoff} readOnly tabIndex={-1} className="[&_input]:bg-ink-6" />
+            <Input label="Pickup (auto)" value={pickup} readOnly disabled tabIndex={-1} className="[&_input]:bg-ink-6" />
+            <Input label="Drop-off (auto)" value={dropoff} readOnly disabled tabIndex={-1} className="[&_input]:bg-ink-6" />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
