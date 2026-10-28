@@ -506,7 +506,8 @@ export function Modal({
   if (!open) return null
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
-      <div className="animate-fade-in absolute inset-0 bg-[rgba(66,24,105,0.4)] backdrop-blur-[2px]" onClick={onClose} />
+      {/* Darker, more blurred backdrop so the dialog isn't competing with the page behind. */}
+      <div className="animate-fade-in absolute inset-0 bg-[rgba(42,16,71,0.55)] backdrop-blur-[8px]" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
@@ -551,7 +552,7 @@ export function Drawer({
   if (!open) return null
   return createPortal(
     <div className="fixed inset-0 z-50">
-      <div className="animate-fade-in absolute inset-0 bg-[rgba(66,24,105,0.4)]" onClick={onClose} />
+      <div className="animate-fade-in absolute inset-0 bg-[rgba(42,16,71,0.55)] backdrop-blur-[8px]" onClick={onClose} />
       <aside
         role="dialog"
         aria-modal="true"

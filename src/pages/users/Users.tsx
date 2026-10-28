@@ -97,19 +97,15 @@ export default function Users() {
         <DataTable
           rows={rows}
           rowKey={(u) => u.id}
-          // onRowClick={(u) => setEditing(u)}
           onRowClick={isReadOnly ? undefined : (u) => setEditing(u)}
+          // Shows ~10 rows at a time; the rest scrolls inside the table and the header stays put.
+          maxHeight="calc(100dvh - 300px)"
           columns={[
-            { header: 'User ID', cell: (u) => <span className="font-bold">{u.id}</span>, hideOnMobile: true },
-            { header: 'Name', cell: (u) => u.name, primary: true },
-            { header: 'Role', cell: (u) => u.role },
-            {
-              header: 'Password',
-              cell: (u) => (u.password ? <span className="font-mono text-[12px]">{u.password}</span> : <span className="text-ink-38">—</span>),
-              hideOnMobile: true,
-            },
-            { header: 'Branch / Team', cell: where },
-            { header: 'Status', cell: (u) => <StatusBadge status={u.status} /> },
+            { header: 'User ID', cell: (u) => <span className="font-bold">{u.id}</span>, className: 'w-[18%]', hideOnMobile: true },
+            { header: 'Name', cell: (u) => u.name, className: 'w-[22%]', primary: true },
+            { header: 'Role', cell: (u) => u.role, className: 'w-[18%]' },
+            { header: 'Branch / Team', cell: where, className: 'w-[26%]' },
+            { header: 'Status', cell: (u) => <StatusBadge status={u.status} />, className: 'w-[16%]' },
           ]}
           // action={(u) => <RowLink onClick={() => setEditing(u)}>Edit ›</RowLink>}
           action={

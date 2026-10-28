@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { IconSparkle } from '@/components/icons'
-import { Badge, ChipGroup, ErrorBlock, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
+import { Badge, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { fmtAge, fmtDay, fmtMoney } from '@/lib/format'
 import { api } from '@/services/api'
@@ -67,10 +67,11 @@ export default function Approvals() {
       />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <SearchInput value={q} onChange={setQ} placeholder="Search request ID or branch…" className="sm:w-[320px]" />
-        <ChipGroup
+        <FilterDropdown
           label="Status"
           value={tab}
           onChange={setTab}
+          defaultValue="pending"
           options={[
             { value: 'pending', label: `Pending · ${counts.pending}` },
             { value: 'approved', label: `Approved · ${counts.approved}` },
