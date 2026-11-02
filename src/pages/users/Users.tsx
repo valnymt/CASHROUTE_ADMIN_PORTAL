@@ -166,10 +166,37 @@ function UserForm({
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault()
-    if (needsPassword && password && password !== confirm) {
-      setErrors((x) => ({ ...x, confirm: 'Passwords do not match.' }))
+
+    const validationErrors: Record<string, string> = {}
+
+    if (needsPassword) {
+      if (!password) {
+        validationErrors.password = 'Please enter a default password.'
+      } else if (password.length < 8) {
+        validationErrors.password = 'Password must be at least 8 characters.'
+      } else if (!/[A-Z]/.test(password)) {
+        validationErrors.password = 'Password must contain an uppercase letter.'
+      } else if (!/[a-z]/.test(password)) {
+        validationErrors.password = 'Password must contain a lowercase letter.'
+      } else if (!/[0-9]/.test(password)) {
+        validationErrors.password = 'Password must contain a number.'
+      } else if (!/[^A-Za-z0-9]/.test(password)) {
+        validationErrors.password = 'Password must contain a special character.'
+      }
+
+      if (!confirm) {
+        validationErrors.confirm = 'Please confirm the password.'
+      } else if (password !== confirm) {
+        validationErrors.confirm = 'Passwords do not match.'
+      }
+    }
+
+    setErrors(validationErrors)
+
+    if (Object.keys(validationErrors).length > 0) {
       return
     }
+
     setBusy(true)
     try {
       const payload = { ...form, branchId: isDelivery ? null : form.branchId, ...(needsPassword ? { password } : {}) }
@@ -243,11 +270,12 @@ function UserForm({
                 setErrors(({ password: _p, ...x }) => x)
               }}
               error={errors.password}
-              hint={
-                isDelivery
-                  ? 'For the CashRoute mobile app. Share it with the team member; they can change it after signing in.'
-                  : 'Share it with the user; they can change it after signing in.'
-              }
+              // hint={
+              //   isDelivery
+              //     ? 'For the CashRoute mobile app. Share it with the team member; they can change it after signing in.'
+              //     : 'Share it with the user; they can change it after signing in.'
+              // }
+              hint="At least 8 characters, including uppercase, lowercase, number, and special character."
               required
             />
             <Input
