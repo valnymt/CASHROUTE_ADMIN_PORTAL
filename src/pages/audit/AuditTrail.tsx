@@ -81,24 +81,49 @@ export default function AuditTrail() {
       ) : !logs ? (
         <LoadingBlock />
       ) : (
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+
+        <div className="grid min-h-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+
+          {/* Audit table - independent scrolling */}
+          {/* <--div className="min-h-0 max-h-[calc(100vh-220px)] overflow-y-auto overscroll-contain rounded-3xl"> */}
           <DataTable
             rows={rows}
             rowKey={(l) => l.id}
             onRowClick={(l) => {
               setSelectedId(l.id)
-              if (window.matchMedia('(max-width: 1023px)').matches) setMobileOpen(true)
+              if (window.matchMedia('(max-width: 1023px)').matches) {
+                setMobileOpen(true)
+              }
             }}
+            maxHeight="calc(100dvh - 300px)"
             rowClassName={(l) => l.id === selected?.id && '!bg-lime-28'}
             columns={[
-              { header: 'Timestamp', cell: (l) => <span className="font-bold">{`${fmtDay(l.at)} · ${fmtTimeSec(l.at)}`}</span>, primary: true },
-              { header: 'Event', cell: (l) => <EventBadge event={l.event} /> },
+              {
+                header: 'Timestamp',
+                cell: (l) => (
+                  <span className="font-bold">
+                    {`${fmtDay(l.at)} · ${fmtTimeSec(l.at)}`}
+                  </span>
+                ),
+                primary: true,
+              },
+              {
+                header: 'Event',
+                cell: (l) => <EventBadge event={l.event} />,
+              },
               { header: 'Request', cell: (l) => l.requestId },
               { header: 'User', cell: (l) => userName(l.userId) },
             ]}
           />
-          <div className="hidden lg:block">{selected && <Details log={selected} users={users ?? []} />}</div>
+          {/* <--/div> */}
+
+          {/* Event details */}
+          <div className="hidden lg:block">
+            {selected && <Details log={selected} users={users ?? []} />}
+          </div>
+
         </div>
+
       )}
 
       <Modal open={mobileOpen && !!selected} onClose={() => setMobileOpen(false)} title="Event details" size="sm">

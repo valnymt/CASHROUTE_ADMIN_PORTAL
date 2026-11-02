@@ -43,7 +43,26 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return (json && typeof json === 'object' && 'data' in json ? json.data : json) as T
 }
 
-const get = <T>(p: string) => request<T>('GET', p)
+// const get = <T>(p: string) => request<T>('GET', p)
+
+// Share identical GET requests while they are still in progress.
+const inFlightGets = new Map<string, Promise<unknown>>()
+
+const get = <T>(p: string): Promise<T> => {
+  const existing = inFlightGets.get(p)
+
+  if (existing) {
+    return existing as Promise<T>
+  }
+
+  const promise = request<T>('GET', p).finally(() => {
+    inFlightGets.delete(p)
+  })
+
+  inFlightGets.set(p, promise)
+
+  return promise
+}
 const post = <T>(p: string, b?: unknown) => request<T>('POST', p, b)
 const put = <T>(p: string, b?: unknown) => request<T>('PUT', p, b)
 
