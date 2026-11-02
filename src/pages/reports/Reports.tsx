@@ -5,7 +5,7 @@ import { Button, Card, ErrorBlock, LoadingBlock, PageHeader, SelectMenu } from '
 import { DatePicker } from '@/components/ui/DatePicker'
 import { cn } from '@/lib/cn'
 import { exportCsv, exportExcel } from '@/lib/export'
-import { fmtMoney, isoDay } from '@/lib/format'
+import { fmtMoney, fmtMoneyShort, isoDay } from '@/lib/format'
 import { api } from '@/services/api'
 import { useApi } from '@/store/data'
 
@@ -21,12 +21,90 @@ interface Filters {
 // The bank is closed on Sat/Sun, so the Trips-per-day chart only shows
 // business days. Keep the index aligned with Date#getDay (Mon = 0 here).
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const ORDINAL = ['', '1st', '2nd', '3rd', '4th', '5th']
+
+/** Monday of the week that contains the given day. */
+function mondayOf(d: Date) {
+  const m = new Date(d)
+  const dow = (m.getDay() + 6) % 7 // Mon = 0 … Sun = 6
+  m.setDate(m.getDate() - dow)
+  m.setHours(0, 0, 0, 0)
+  return m
+}
+
+/** 1st | 2nd | 3rd … Monday-week of its Monday's month. */
+function nthBusinessWeek(monday: Date) {
+  const m = monday.getMonth()
+  const y = monday.getFullYear()
+  let count = 0
+  for (let d = 1; d <= monday.getDate(); d++) {
+    const t = new Date(y, m, d)
+    if (t.getDay() === 1) count++
+  }
+  return count
+}
+
+interface WeekOpt {
+  value: string      // ISO Monday
+  label: string      // "This week · 2–6 Nov"
+  from: string       // ISO Mon
+  to: string         // ISO Fri (effective — today if the week is still in progress)
+  rangeText: string  // "2–6 Nov" (uses today's date if in progress)
+}
+
+/** Friendly label for a date range inside the same (or crossing) month. */
+function rangeLabel(from: Date, to: Date) {
+  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear()
+  if (sameMonth) return `${from.getDate()}–${to.getDate()} ${MONTHS[from.getMonth()]}`
+  return `${from.getDate()} ${MONTHS[from.getMonth()]} – ${to.getDate()} ${MONTHS[to.getMonth()]}`
+}
+
+/** Build the last `count` business weeks as pick-list options. */
+function recentWeeks(count = 10): WeekOpt[] {
+  const todayMon = mondayOf(new Date())
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const out: WeekOpt[] = []
+  for (let i = 0; i < count; i++) {
+    const mon = new Date(todayMon)
+    mon.setDate(mon.getDate() - i * 7)
+    const fri = new Date(mon)
+    fri.setDate(fri.getDate() + 4)
+
+    // If this is the current week, cap the "to" at today so filtered rows
+    // match reality (future days have no data yet).
+    const inProgress = i === 0 && today < fri
+    const effTo = inProgress ? today : fri
+
+    const range = rangeLabel(mon, effTo)
+    let title: string
+    if (i === 0) title = `This week · ${range}${inProgress ? ' · so far' : ''}`
+    else if (i === 1) title = `Last week · ${range}`
+    else {
+      const n = nthBusinessWeek(mon)
+      title = `${ORDINAL[n] ?? `${n}th`} week of ${MONTHS_LONG[mon.getMonth()]} · ${range}`
+    }
+
+    out.push({
+      value: isoDay(mon),
+      label: title,
+      from: isoDay(mon),
+      to: isoDay(effTo),
+      rangeText: range,
+    })
+  }
+  return out
+}
+
+const CUSTOM_RANGE = '__custom__'
 
 function defaultFilters(): Filters {
-  const to = new Date()
-  const from = new Date()
-  from.setDate(from.getDate() - 12)
-  return { from: isoDay(from), to: isoDay(to), branch: '', type: '', status: '', team: '' }
+  const weeks = recentWeeks(1)
+  const w = weeks[0]!
+  return { from: w.from, to: w.to, branch: '', type: '', status: '', team: '' }
 }
 
 
@@ -36,8 +114,11 @@ export default function Reports() {
   const { data: trips, error, reload } = useApi(() => api.trips.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
+  const weekOptions = useMemo(() => recentWeeks(10), [])
   const [draft, setDraft] = useState<Filters>(defaultFilters)
   const [applied, setApplied] = useState<Filters>(draft)
+  // Which week is currently chosen in the dropdown, or CUSTOM_RANGE for arbitrary dates.
+  const [weekPick, setWeekPick] = useState<string>(() => weekOptions[0]?.value ?? CUSTOM_RANGE)
 
   const branchName = (id: string) => branches?.find((b) => b.id === id)?.name.replace(' Branch', '') ?? id
   const teamName = (id: string) => teams?.find((t) => t.id === id)?.name ?? id
@@ -113,6 +194,29 @@ export default function Reports() {
 
   const setF = (k: keyof Filters, v: string) => setDraft((d) => ({ ...d, [k]: v }))
 
+  /** Picking a week updates the From/To range behind the scenes. */
+  const pickWeek = (value: string) => {
+    setWeekPick(value)
+    if (value === CUSTOM_RANGE) return
+    const w = weekOptions.find((o) => o.value === value)
+    if (w) setDraft((d) => ({ ...d, from: w.from, to: w.to }))
+  }
+  const currentWeek = weekOptions.find((o) => o.value === weekPick)
+  const customMode = weekPick === CUSTOM_RANGE
+  // How many business days the chosen window actually covers (1–5), used for a
+  // "showing N of 5 business days" hint under the chart row.
+  const activeDays = (() => {
+    if (!draft.from || !draft.to) return 0
+    const a = new Date(`${draft.from}T00:00:00`)
+    const b = new Date(`${draft.to}T00:00:00`)
+    let n = 0
+    for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+      const dow = d.getDay()
+      if (dow !== 0 && dow !== 6) n++
+    }
+    return n
+  })()
+
   return (
     <>
       <PageHeader
@@ -134,16 +238,45 @@ export default function Reports() {
           (each glass card is its own stacking context because of backdrop-filter). */}
       <Card padded={false} className="relative z-20 p-4">
         <form
-          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[2.2fr_1fr_1fr_1fr_1fr_auto] xl:items-end"
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.6fr_1fr_1fr_1fr_1fr_auto] xl:items-end"
           onSubmit={(e) => {
             e.preventDefault()
             setApplied(draft)
           }}
         >
-          {/* Full row until xl so the dates ("21 Oct 2026") aren't cut off. */}
-          <div className="grid grid-cols-2 gap-2 sm:col-span-2 xl:col-span-1">
-            <DatePicker label="From" placeholder="Start date" value={draft.from} max={draft.to} onChange={(v) => setF('from', v)} rangeStart={draft.from} rangeEnd={draft.to} clearable={false} />
-            <DatePicker label="To" placeholder="End date" value={draft.to} min={draft.from} onChange={(v) => setF('to', v)} rangeStart={draft.from} rangeEnd={draft.to} clearable={false} align="right" />
+          {/* Week picker in the normal case; falls back to From/To when "Custom range" is chosen. */}
+          <div className="sm:col-span-2 xl:col-span-1">
+            {customMode ? (
+              <div className="grid grid-cols-2 gap-2">
+                <DatePicker label="From" placeholder="Start date" value={draft.from} max={draft.to} onChange={(v) => setF('from', v)} rangeStart={draft.from} rangeEnd={draft.to} clearable={false} />
+                <DatePicker label="To" placeholder="End date" value={draft.to} min={draft.from} onChange={(v) => setF('to', v)} rangeStart={draft.from} rangeEnd={draft.to} clearable={false} align="right" />
+              </div>
+            ) : (
+              <SelectMenu
+                label="Week"
+                value={weekPick}
+                onChange={pickWeek}
+                options={[...weekOptions.map((w) => ({ value: w.value, label: w.label })), { value: CUSTOM_RANGE, label: 'Custom range…' }]}
+                placeholder="Pick a week"
+              />
+            )}
+            {!customMode && currentWeek && (
+              <p className="mt-1.5 flex items-center gap-2 text-[11px] text-ink-60">
+                <span>{currentWeek.rangeText}</span>
+                <span>·</span>
+                <span>{activeDays === 5 ? 'Full business week' : `${activeDays} of 5 business days`}</span>
+                <button type="button" onClick={() => pickWeek(CUSTOM_RANGE)} className="ml-auto font-bold text-violet hover:underline">
+                  Custom range
+                </button>
+              </p>
+            )}
+            {customMode && (
+              <p className="mt-1.5 text-[11px] text-ink-60">
+                <button type="button" onClick={() => pickWeek(weekOptions[0]!.value)} className="font-bold text-violet hover:underline">
+                  ← Back to weekly picker
+                </button>
+              </p>
+            )}
           </div>
           <SelectMenu label="Branch" value={draft.branch} onChange={(v) => setF('branch', v)} placeholder="All branches" options={branches.filter((b) => b.type === 'Branch').map((b) => ({ value: b.id, label: b.name }))} />
           <SelectMenu label="Type" value={draft.type} onChange={(v) => setF('type', v)} placeholder="All types" options={[{ value: 'Deposit', label: 'Deposit' }, { value: 'Withdrawal', label: 'Withdrawal' }]} />
@@ -159,6 +292,7 @@ export default function Reports() {
                 const d = defaultFilters()
                 setDraft(d)
                 setApplied(d)
+                setWeekPick(weekOptions[0]?.value ?? CUSTOM_RANGE)
               }}
             >
               Reset
@@ -184,7 +318,7 @@ export default function Reports() {
             {stats.perBranch.map(([id, e]) => {
               const avgSize = e.count ? Math.round(e.amount / e.count) : 0
               return (
-                <li key={id} className="grid grid-cols-[70px_1fr] items-center gap-3">
+                <li key={id} className="grid grid-cols-[70px_1fr_auto] items-center gap-3">
                   <span className="truncate text-[11px] text-ink-60">{branchName(id)}</span>
                   <button
                     type="button"
@@ -206,6 +340,7 @@ export default function Reports() {
                       <p className="mt-1.5 text-[10px] font-bold text-violet">Click to open in Trip History ›</p>
                     </ChartTip>
                   </button>
+                  <span className="text-right text-[11px] font-bold tabular-nums text-ink">{fmtMoneyShort(e.amount, currency)}</span>
                 </li>
               )
             })}
@@ -221,7 +356,7 @@ export default function Reports() {
               const total = d.on + d.late
               const rate = total ? Math.round((d.on / total) * 100) : 0
               return (
-                <li key={i} className="grid grid-cols-[60px_1fr] items-center gap-3">
+                <li key={i} className="grid grid-cols-[48px_1fr_auto] items-center gap-3">
                   <span className="text-[11px] text-ink-60">{WEEKDAYS[i]}</span>
                   <button
                     type="button"
@@ -260,6 +395,9 @@ export default function Reports() {
                       )}
                     </ChartTip>
                   </button>
+                  <span className="text-right text-[11px] font-bold tabular-nums text-ink">
+                    {total === 0 ? <span className="text-ink-38">—</span> : `${d.on}/${total}`}
+                  </span>
                 </li>
               )
             })}
