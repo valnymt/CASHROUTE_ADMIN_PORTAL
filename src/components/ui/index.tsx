@@ -79,8 +79,8 @@ export function Button({ variant = 'violet', size = 'md', loading, className, ch
       </Link>
     )
   return (
-    <button type="button" className={cls} disabled={disabled || loading} {...rest}>
-      {loading && <Spinner className="size-4" />}
+    <button type="button" className={cn(cls, loading && '!text-white')} disabled={disabled || loading} {...rest}>
+      {loading && <Spinner className="size-4 !border-white !border-r-transparent" />}
       {children}
     </button>
   )
@@ -310,7 +310,7 @@ export function FilterDropdown<T extends string>({
 /* ------------------------------------------------------------ Form fields */
 
 const control =
-  'w-full rounded-[18px] border border-white/95 bg-white/75 px-4 py-3 text-[13px] text-ink placeholder:text-ink-38 outline-none transition focus:border-violet/40 focus:bg-white focus:ring-4 focus:ring-violet/10 disabled:bg-ink-4 disabled:text-ink-60'
+  'w-full rounded-[18px] border border-violet/15 bg-white/75 px-4 py-3 text-[13px] text-ink placeholder:text-ink-38 outline-none transition focus:border-violet/40 focus:bg-white focus:ring-4 focus:ring-violet/10 disabled:bg-ink-4 disabled:text-ink-60'
 const invalid = '!border-[rgba(229,72,77,0.6)] !ring-danger/10'
 
 export function Field({

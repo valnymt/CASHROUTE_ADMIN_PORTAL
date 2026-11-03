@@ -12,7 +12,7 @@ import { useAuth } from '@/store/auth'
 const IDLE_MIN = Number(import.meta.env.VITE_IDLE_TIMEOUT_MIN ?? 120)
 const WARN_SEC = 30
 
-const IdleCtx = createContext<{ trigger: () => void }>({ trigger: () => {} })
+const IdleCtx = createContext<{ trigger: () => void }>({ trigger: () => { } })
 export const useIdleTimeout = () => useContext(IdleCtx)
 
 export function IdleTimeoutProvider({ children }: { children: ReactNode }) {

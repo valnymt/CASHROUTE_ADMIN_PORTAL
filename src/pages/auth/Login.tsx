@@ -48,7 +48,7 @@ export default function Login() {
     const name = username.trim() || 'admin.maker'
     setUsername(name)
     setPassword('•••••••••')
-    await api.auth.simulateLockout(name).catch(() => {})
+    await api.auth.simulateLockout(name).catch(() => { })
     setLocked(true)
   }
 
@@ -99,7 +99,7 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             error={fieldErrors.password}
             disabled={locked}
-            className="[&_input]:pr-16"
+            className="[&_input]:pr-5"
           />
           <button
             type="button"
@@ -107,7 +107,7 @@ export default function Login() {
             disabled={locked}
             className="absolute top-[34px] right-4 text-[12px] font-bold text-violet disabled:text-ink-38"
           >
-            {show ? 'Hide' : 'Show'}
+            {/* {show ? 'Hide' : 'Show'} */}
           </button>
         </div>
 
