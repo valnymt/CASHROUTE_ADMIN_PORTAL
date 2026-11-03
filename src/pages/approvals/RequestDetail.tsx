@@ -168,8 +168,9 @@ export default function RequestDetail() {
                 Track on live map
               </Button>
             )}
-            {/* Reassign stays open only until the driver accepts the push. */}
-            {!isReadOnly && r.status === 'Assigned' && r.canReassign && (
+            {/* Reassign is a Checker-only move, and only while the driver
+                hasn't accepted the push yet. */}
+            {isChecker && r.status === 'Assigned' && r.canReassign && (
               <Button
                 variant="ghost"
                 className="mt-3 w-full"
@@ -236,7 +237,8 @@ export default function RequestDetail() {
           finish(`${r.id} cancelled.`, 'cancelled')
         }}
       />
-      <AssignDrawer open={!isReadOnly && assignOpen} request={r} teams={teams} users={users} onClose={() => setAssignOpen(false)} />
+      {/* Only Checkers assign/reassign — a Maker who deep-links /assign gets nothing. */}
+      <AssignDrawer open={isChecker && assignOpen} request={r} teams={teams} users={users} onClose={() => setAssignOpen(false)} />
     </>
   )
 }
