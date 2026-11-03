@@ -9,7 +9,7 @@ import { api } from '@/services/api'
 import { useApi } from '@/store/data'
 import type { AuditEvent, AuditLog, User } from '@/types'
 
-type Filter = 'all' | AuditEvent | 'App trip'
+type Filter = 'all' | AuditEvent | AuditLog | 'App trip'
 const APP_TRIP: AuditEvent[] = ['In Transit', 'Delivered']
 
 /** AP-09 · Audit Trail & System Logs (read-only). */
@@ -67,6 +67,8 @@ export default function AuditTrail() {
             { value: 'Assign', label: 'Assign' },
             { value: 'Cancel', label: 'Cancel' },
             { value: 'App trip', label: 'App trip' },
+            { value: 'Login', label: 'Login' },
+            { value: 'Logout', label: 'Logout' },
           ]}
         />
         <div className="flex items-center gap-2">
