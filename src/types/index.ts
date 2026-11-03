@@ -82,6 +82,8 @@ export interface CashRequest {
   createdAt: string // ISO
   status: RequestStatus
   teamId: string | null
+  /** True while a Checker can still swap the delivery team (Assigned, driver hasn't accepted). */
+  canReassign?: boolean
   rejectReason: string | null
   /** Set when the request is cancelled (Maker withdrawal or Checker cancel). */
   cancelReason?: string | null

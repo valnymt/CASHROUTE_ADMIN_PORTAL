@@ -168,6 +168,16 @@ export default function RequestDetail() {
                 Track on live map
               </Button>
             )}
+            {/* Reassign stays open only until the driver accepts the push. */}
+            {!isReadOnly && r.status === 'Assigned' && r.canReassign && (
+              <Button
+                variant="ghost"
+                className="mt-3 w-full"
+                onClick={() => setAssignOpen(true)}
+              >
+                Reassign to a different team
+              </Button>
+            )}
             {!isReadOnly && canCancel && (
               <Button
                 variant="danger-soft"
@@ -331,9 +341,15 @@ function AssignDrawer({
   const toast = useToast()
   const [teamId, setTeamId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // Only confirmed, available teams can take a delivery.
-  const canTake = (t: Team) => t.status === 'Available' && t.confirmed
-  const sorted = [...teams].sort((a, b) => Number(!canTake(a)) - Number(!canTake(b)))
+  const isReassign = request.status === 'Assigned'
+  const currentTeamId = request.teamId
+  // Only confirmed, available teams can take a delivery — plus, while reassigning,
+  // the currently-assigned team is also a valid pick (reassign no-ops to the same team
+  // are blocked server-side, so we just don't highlight it as selectable).
+  const canTake = (t: Team) => t.confirmed && (t.status === 'Available' || t.id === currentTeamId)
+  const sorted = [...teams]
+    .filter((t) => t.id !== currentTeamId)
+    .sort((a, b) => Number(!canTake(a)) - Number(!canTake(b)))
   const firstFree = sorted.find(canTake)?.id ?? null
   const chosen = teamId ?? firstFree
 
@@ -344,9 +360,9 @@ function AssignDrawer({
       await api.requests.assign(request.id, chosen)
       invalidate()
       const t = teams.find((x) => x.id === chosen)
-      toast(`${t?.name} assigned — push notification sent.`)
+      toast(isReassign ? `${t?.name} reassigned — push sent to the new team.` : `${t?.name} assigned — push notification sent.`)
       onClose()
-      navigate('/approvals')
+      navigate(isReassign ? `/approvals/${request.id}` : '/approvals')
     } catch (e) {
       toast((e as ApiError).message, 'error')
     } finally {
@@ -361,25 +377,33 @@ function AssignDrawer({
     return `${d} Driver${d === 1 ? '' : 's'} · ${c} Custodian${c === 1 ? '' : 's'}`
   }
 
+  const currentTeamName = teams.find((t) => t.id === currentTeamId)?.name
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
-      title="Assign delivery team"
+      title={isReassign ? 'Reassign delivery team' : 'Assign delivery team'}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={assign} loading={busy} disabled={!chosen}>
-            Assign & notify team
+            {isReassign ? 'Reassign & notify new team' : 'Assign & notify team'}
           </Button>
         </>
       }
     >
-      <p className="rounded-[16px] border border-lime/60 bg-lime-28 px-3.5 py-3 text-[12px] font-semibold text-ink">
-        ✓ {request.id} approved. Select an available team — a push notification is sent immediately.
-      </p>
+      {isReassign ? (
+        <p className="rounded-[16px] border border-amber-16 bg-amber-16 px-3.5 py-3 text-[12px] font-semibold text-ink">
+          ⚠ {request.id} is currently with <b>{currentTeamName ?? 'the previous team'}</b>. Picking a new team cancels the old push and sends a fresh one.
+        </p>
+      ) : (
+        <p className="rounded-[16px] border border-lime/60 bg-lime-28 px-3.5 py-3 text-[12px] font-semibold text-ink">
+          ✓ {request.id} approved. Select an available team — a push notification is sent immediately.
+        </p>
+      )}
       <ul role="radiogroup" aria-label="Delivery team" className="mt-4 flex flex-col gap-3">
         {sorted.map((t) => {
           const free = canTake(t)
