@@ -26,7 +26,7 @@ export interface ApiState<T> {
   reload: () => void
 }
 
-export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []): ApiState<T> {
+export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = [], opts: { pollMs?: number } = {}): ApiState<T> {
   const { version } = useContext(VersionCtx)
   const [state, setState] = useState<{ data: T | undefined; loading: boolean; error: Error | null }>({
     data: undefined,
@@ -49,6 +49,19 @@ export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []): ApiS
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version, tick, ...deps])
+
+  // Background polling: silently re-fetch every pollMs so counts and feeds stay
+  // fresh without the caller having to click Refresh.
+  useEffect(() => {
+    if (!opts.pollMs) return
+    const id = window.setInterval(() => {
+      fetcherRef
+        .current()
+        .then((data) => setState((s) => ({ ...s, data, loading: false, error: null })))
+        .catch(() => {}) // swallow transient errors so a blip doesn't blank the UI
+    }, opts.pollMs)
+    return () => window.clearInterval(id)
+  }, [opts.pollMs])
 
   return { ...state, reload: () => setTick((t) => t + 1) }
 }

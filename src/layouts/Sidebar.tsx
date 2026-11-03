@@ -23,7 +23,9 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { data: requests } = useApi(() => api.requests.list())
+  // Poll every 30 s so Approvals / Live Monitoring badges update when another
+  // user (e.g. a Maker on their own device) creates or finishes a request.
+  const { data: requests } = useApi(() => api.requests.list(), [], { pollMs: 30_000 })
 
   const onRoad = requests?.filter((r) => r.status === 'In Transit' || r.status === 'Assigned').length
   const toReview = requests?.filter((r) => r.status === 'Pending' && r.createdBy !== user?.id).length
