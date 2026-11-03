@@ -1,5 +1,4 @@
 import { IconMenu } from '@/components/icons'
-import NotificationBell from '@/components/NotificationBell'
 
 /** Page header: breadcrumb + title (and the menu button on phones/tablets). */
 export default function Topbar({ crumbs, title, onMenu }: { crumbs: string[]; title: string; onMenu: () => void }) {
@@ -13,11 +12,10 @@ export default function Topbar({ crumbs, title, onMenu }: { crumbs: string[]; ti
       >
         <IconMenu />
       </button>
-      <div className="min-w-0 flex-1 leading-normal">
+      <div className="min-w-0 leading-normal">
         <p className="hidden truncate text-[12px] text-ink-60 sm:block">{['CashRoute', ...crumbs].join('  ›  ')}</p>
         <h1 className="truncate text-[22px] font-bold text-plum sm:text-[26px]">{title}</h1>
       </div>
-      <NotificationBell />
     </header>
   )
 }
