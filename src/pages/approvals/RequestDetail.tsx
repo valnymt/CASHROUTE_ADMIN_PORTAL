@@ -185,7 +185,7 @@ export default function RequestDetail() {
                 className="mt-3 w-full"
                 onClick={() => setCancelOpen(true)}
               >
-                Cancel request
+                Cancel Assign
               </Button>
             )}
             {r.status === 'Delivered' && (

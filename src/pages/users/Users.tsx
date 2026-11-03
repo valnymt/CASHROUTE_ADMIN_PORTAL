@@ -95,7 +95,7 @@ export default function Users() {
         <LoadingBlock />
       ) : (
         <DataTable
-          rows={rows}
+          rows={[...rows].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }))}
           rowKey={(u) => u.id}
           onRowClick={isReadOnly ? undefined : (u) => setEditing(u)}
           // Shows ~10 rows at a time; the rest scrolls inside the table and the header stays put.
