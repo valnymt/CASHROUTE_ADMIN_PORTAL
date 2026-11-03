@@ -7,7 +7,6 @@ import { cn } from '@/lib/cn'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi } from '@/store/data'
-import { useIdleTimeout } from './IdleTimeout'
 
 interface NavItem {
   to: string
@@ -24,7 +23,6 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { trigger } = useIdleTimeout()
   const { data: requests } = useApi(() => api.requests.list())
 
   const onRoad = requests?.filter((r) => r.status === 'In Transit' || r.status === 'Assigned').length
@@ -152,9 +150,6 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
           className="self-start text-[11px] font-semibold text-violet hover:underline"
         >
           Change password
-        </button>
-        <button type="button" onClick={() => { onNavigate?.(); trigger() }} className="self-start text-[11px] font-semibold text-violet hover:underline">
-          Demo: idle timeout
         </button>
         <button
           type="button"

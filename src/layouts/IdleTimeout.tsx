@@ -7,7 +7,9 @@ import { useAuth } from '@/store/auth'
  * AP-01 · Session Timeout. After IDLE_MIN minutes without input a warning
  * appears; if nobody answers within WARN_SEC the user is signed out.
  */
-const IDLE_MIN = Number(import.meta.env.VITE_IDLE_TIMEOUT_MIN ?? 15)
+// Match SESSION_LIFETIME on the backend (120 min). The warning gives a 30 s
+// grace period so the user can stay signed in with one click.
+const IDLE_MIN = Number(import.meta.env.VITE_IDLE_TIMEOUT_MIN ?? 120)
 const WARN_SEC = 30
 
 const IdleCtx = createContext<{ trigger: () => void }>({ trigger: () => {} })
