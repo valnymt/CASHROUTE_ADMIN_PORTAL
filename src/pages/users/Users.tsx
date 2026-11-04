@@ -99,7 +99,7 @@ export default function Users() {
         <LoadingBlock />
       ) : (
         <DataTable
-          rows={[...rows].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
+          rows={[...rows].sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())}
           rowKey={(u) => u.id}
           onRowClick={isReadOnly ? undefined : (u) => setEditing(u)}
           // Shows ~10 rows at a time; the rest scrolls inside the table and the header stays put.
@@ -358,11 +358,23 @@ function UserForm({
             Delivery staff are grouped under Users & Teams → Delivery Teams, with teammates from the same branch.
           </p>
         )}
-        <Toggle
-          checked={form.status === 'Active'}
-          onChange={(v) => set('status', v ? 'Active' : 'Locked')}
-          label={`Status: ${form.status}`}
-        />
+        {/* Status is read-only while the account is Locked — flipping to Active would
+            leave the user with no password. Super Admin must use Reactivate &
+            reset password instead, which generates a one-time password and emails
+            it. For Active accounts you can still freely toggle Locked here. */}
+        <div className="flex flex-col gap-1">
+          <Toggle
+            checked={form.status === 'Active'}
+            onChange={(v) => set('status', v ? 'Active' : 'Locked')}
+            disabled={isLocked}
+            label={`Status: ${form.status}`}
+          />
+          {isLocked && (
+            <p className="text-[11px] text-ink-60">
+              Account is locked. Use <b>Reactivate &amp; reset password</b> below — a new password is generated and emailed to the user, and the status flips back to Active automatically.
+            </p>
+          )}
+        </div>
         <button type="submit" hidden />
       </form>
     </Modal>

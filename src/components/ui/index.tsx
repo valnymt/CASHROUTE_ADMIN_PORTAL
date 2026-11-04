@@ -531,17 +531,20 @@ export function Textarea({ label, error, hint, className, id, required, ...rest 
   )
 }
 
-export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode }) {
+export function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; disabled?: boolean }) {
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2.5 select-none">
+    <label className={cn('inline-flex items-center gap-2.5 select-none', disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
-        onClick={() => onChange(!checked)}
+        aria-disabled={disabled || undefined}
+        disabled={disabled}
+        onClick={() => !disabled && onChange(!checked)}
         className={cn(
           'relative h-6 w-11 shrink-0 rounded-full transition',
           checked ? 'bg-lime shadow-glow-lime' : 'bg-ink-9',
+          disabled && 'cursor-not-allowed',
         )}
       >
         <span className={cn('absolute top-0.5 size-5 rounded-full bg-white shadow transition-all', checked ? 'left-[22px]' : 'left-0.5')} />

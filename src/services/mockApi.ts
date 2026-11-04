@@ -258,6 +258,7 @@ export const mockApi: Api = {
           ...data,
           id: nextUserId(db.users),
           username: data.username || data.name.trim().toLowerCase().replace(/\s+/g, '.'),
+          createdAt: new Date().toISOString(),
         }
         db.users.push(u)
         return u

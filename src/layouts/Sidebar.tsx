@@ -88,8 +88,8 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
 
   return (
     <nav aria-label="Main" className="glass flex h-full w-[260px] flex-col overflow-hidden rounded-[28px] px-3">
-      <div className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-2 pt-7 pb-6">
-        <div className="flex items-start justify-between px-1.5 pb-4">
+      <div className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pt-5 pb-4">
+        <div className="flex items-start justify-between px-1.5 pb-2">
           <Logo />
           {onClose && (
             <IconButton label="Close menu" onClick={onClose} className="lg:hidden">
@@ -99,8 +99,8 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
         </div>
 
         {sections.filter((s) => s.items.length > 0).map((s) => (
-          <div key={s.heading} className="flex flex-col gap-1.5 pt-2">
-            <p className="px-2 pt-1 pb-1 text-[10px] font-bold tracking-wider text-ink-38">{s.heading}</p>
+          <div key={s.heading} className="flex flex-col gap-1 pt-1.5">
+            <p className="px-2 pt-0.5 pb-0.5 text-[10px] font-bold tracking-wider text-ink-38">{s.heading}</p>
             {s.items.map(({ to, label, Icon, count, countTone, match, end }) => (
               <NavLink
                 key={to}
@@ -110,7 +110,7 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
                 className={({ isActive }) => {
                   const active = isActive || match?.some((m) => pathname.startsWith(m))
                   return cn(
-                    'flex h-[42px] shrink-0 items-center justify-between rounded-[22px] pr-3.5 pl-4 text-[14px] transition',
+                    'flex h-[38px] shrink-0 items-center justify-between rounded-[20px] pr-3.5 pl-4 text-[13.5px] transition',
                     active
                       ? 'bg-gradient-to-r from-violet to-violet-2 font-bold text-white shadow-violet'
                       : 'bg-[#D1D3FF]/45 font-medium text-ink hover:bg-white hover:shadow-plum',
@@ -143,7 +143,7 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
           </div>
         ))}
 
-        <div className="min-h-10 flex-1" />
+        <div className="min-h-4 flex-1" />
 
         {user && (
           <button

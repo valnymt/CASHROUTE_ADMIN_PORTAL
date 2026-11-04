@@ -173,4 +173,25 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(114, 28, 184, 0.35) rgba(234, 230, 243, 0.4);
   }
+
+  /* Sidebar's own scrollbar: tiny + even softer than the portal default. */
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 6px 0;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(114, 28, 184, 0.22);
+    border: 0;
+    border-radius: 999px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(114, 28, 184, 0.4);
+  }
+  .sidebar-scroll {
+    scrollbar-color: rgba(114, 28, 184, 0.22) transparent;
+  }
 }

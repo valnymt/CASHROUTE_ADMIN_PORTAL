@@ -9,7 +9,7 @@ import { api } from '@/services/api'
 import { useApi } from '@/store/data'
 import type { AuditEvent, AuditLog, User } from '@/types'
 
-type Filter = 'all' | AuditEvent | AuditLog | 'App trip'
+type Filter = 'all' | AuditEvent | 'App trip' | 'Login' | 'Logout'
 const APP_TRIP: AuditEvent[] = ['In Transit', 'Delivered']
 
 /** AP-09 · Audit Trail & System Logs (read-only). */
