@@ -90,6 +90,7 @@ export const httpApi: Api = {
     list: () => get('/users'),
     create: (d) => post('/users', d),
     update: (id, d) => put(`/users/${id}`, d),
+    reactivate: (id) => post(`/users/${id}/reactivate`),
   },
   teams: {
     list: () => get('/teams'),

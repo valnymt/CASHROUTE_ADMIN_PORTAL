@@ -22,6 +22,8 @@ export interface User {
   createdAt: string
   /** Portal sign-in password (Super Admin / Maker / Checker). UI demo only — the real backend stores it hashed. */
   password?: string
+  /** True right after a password reset — pushes the user to Change Password until they pick a new one. */
+  mustChangePassword?: boolean
 }
 
 export interface Branch {

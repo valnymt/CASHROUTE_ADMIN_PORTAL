@@ -114,6 +114,9 @@ export default function Login() {
         <Button type="submit" loading={busy} disabled={locked} className="mt-1 w-full">
           Sign in
         </Button>
+        <p className="mt-1 text-center text-[11px] text-ink-60">
+          Locked out? Ask a Super Admin to reactivate your account.
+        </p>
       </form>
 
       {locked ? (
@@ -130,7 +133,6 @@ export default function Login() {
               Demo: simulate 5 failed attempts
             </button>
           )}
-          <p className="mt-5 text-[12px] text-ink-60">Sessions end automatically after a period of inactivity.</p>
           {USE_MOCK_API && (
             <p className="mt-2 text-[11px] text-ink-38">
               Demo login: <span className="font-semibold text-ink-60">admin.maker</span> /{' '}

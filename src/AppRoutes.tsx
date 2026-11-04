@@ -17,7 +17,6 @@ const AuditTrail = lazy(() => import('./pages/audit/AuditTrail'))
 const Reports = lazy(() => import('./pages/reports/Reports'))
 const ReportDetail = lazy(() => import('./pages/reports/ReportDetail'))
 const History = lazy(() => import('./pages/reports/History'))
-const ChangePassword = lazy(() => import('./pages/auth/ChangePassword'))
 
 /**
  * Client-side routes — one per Figma frame. Keep in sync with routes/web.php,
@@ -66,8 +65,6 @@ export default function AppRoutes() {
           <Route path="/reports/:id" element={<ReportDetail />} />
           <Route path="/history" element={<History />} />
 
-          {/* Account · change own password */}
-          <Route path="/account/password" element={<ChangePassword />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/live" replace />} />

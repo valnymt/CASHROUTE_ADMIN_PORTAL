@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, ErrorBlock, Input, LoadingBlock, PageHeader, Select, Textarea } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { COMPLETION_WINDOWS, completionLabel, isoDay } from '@/lib/format'
+import { branchScope } from '@/lib/scope'
 import { api, ApiError, type RequestInput } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi, useInvalidate } from '@/store/data'
@@ -30,6 +31,8 @@ export default function NewRequest() {
   const toast = useToast()
   const { data: branches, error, reload } = useApi(() => api.branches.list())
   const { data: existing, error: loadError } = useApi(() => (id ? api.requests.get(id) : Promise.resolve(null)), [id])
+  // Branch Makers raise requests for their own branch only; HQ Makers pick any branch.
+  const scope = branches ? branchScope(user, branches) : null
 
   const blank = (): RequestInput & { amountText: string } => ({
     type: 'Deposit',
@@ -44,6 +47,11 @@ export default function NewRequest() {
   const [form, setForm] = useState(blank)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+
+  // New request: preselect the Maker's own branch once branches load.
+  useEffect(() => {
+    if (scope && !editing) setForm((f) => ({ ...f, branchId: scope }))
+  }, [scope, editing])
 
   // Edit mode: fill the form from the saved request once it loads.
   useEffect(() => {
@@ -63,9 +71,9 @@ export default function NewRequest() {
   const branchOptions = useMemo(
     () =>
       (branches ?? [])
-        .filter((b) => b.type === 'Branch')
+        .filter((b) => b.type === 'Branch' && (!scope || b.id === scope))
         .map((b) => ({ value: b.id, label: `${b.name} (${b.code})${b.active ? '' : ' — inactive'}`, disabled: !b.active })),
-    [branches],
+    [branches, scope],
   )
 
   if (error || loadError) return <ErrorBlock error={(error ?? loadError)!} onRetry={reload} />
@@ -171,7 +179,15 @@ export default function NewRequest() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Select label="Branch" value={form.branchId} onChange={(e) => set('branchId', e.target.value)} options={branchOptions} error={errors.branchId} />
+            <Select
+              label="Branch"
+              value={form.branchId}
+              onChange={(e) => set('branchId', e.target.value)}
+              options={branchOptions}
+              error={errors.branchId}
+              disabled={!!scope}
+              hint={scope ? 'Your branch — Makers can only request for their own branch' : undefined}
+            />
             <Input label="Pickup (auto)" value={pickup} readOnly disabled tabIndex={-1} className="[&_input]:bg-ink-6" />
             <Input label="Drop-off (auto)" value={dropoff} readOnly disabled tabIndex={-1} className="[&_input]:bg-ink-6" />
           </div>

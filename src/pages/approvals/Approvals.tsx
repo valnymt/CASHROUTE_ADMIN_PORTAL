@@ -4,6 +4,7 @@ import { IconSparkle } from '@/components/icons'
 import { Badge, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput, StatusBadge } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { fmtAge, fmtDay, fmtMoney } from '@/lib/format'
+import { branchScope } from '@/lib/scope'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi } from '@/store/data'
@@ -34,19 +35,23 @@ export default function Approvals() {
   const branchShort = (id: string) => branches?.find((b) => b.id === id)?.name.replace(' Branch', '') ?? id
   const creator = (id: string) => (id === user?.id ? `${user.name} (you)` : (users?.find((u) => u.id === id)?.name ?? id))
 
+  // Branch Checkers only see requests from their own branch; Super Admin and HQ see every branch.
+  const scope = branches ? branchScope(user, branches) : null
+  const visible = useMemo(() => (requests ?? []).filter((r) => !scope || r.branchId === scope), [requests, scope])
+
   const counts = useMemo(() => {
-    const r = requests ?? []
+    const r = visible
     return {
       pending: r.filter((x) => x.status === 'Pending').length,
       approved: r.filter((x) => APPROVED.includes(x.status)).length,
       rejected: r.filter((x) => x.status === 'Rejected').length,
       cancelled: r.filter(checkerCancelled).length,
     }
-  }, [requests])
+  }, [visible])
 
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return (requests ?? [])
+    return visible
       .filter((r) =>
         tab === 'pending'
           ? r.status === 'Pending'
@@ -58,13 +63,17 @@ export default function Approvals() {
       )
       .filter((r) => !s || `${r.id} ${branchShort(r.branchId)} ${r.type}`.toLowerCase().includes(s))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requests, tab, q, branches])
+  }, [visible, tab, q, branches])
 
   return (
     <>
       <PageHeader
         title="Pending Requests"
-        subtitle="Review and approve or reject requests created by Makers"
+        subtitle={
+          scope
+            ? `Review and approve or reject requests from ${branchShort(scope)} branch`
+            : 'Review and approve or reject requests created by Makers'
+        }
       />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <SearchInput value={q} onChange={setQ} placeholder="Search request ID or branch…" className="sm:w-[320px]" />

@@ -101,19 +101,21 @@ export function createSeed(now = new Date()): Db {
     user('U-001', 'Amy Tan', 'Maker', { branchId: 'BR-001' }),
     user('U-002', 'Priya Nair', 'Maker', { branchId: 'HQ-001' }),
     user('U-003', 'Admin User', 'Super Admin', { branchId: 'HQ-001', username: 'admin.maker' }),
-    user('U-004', 'Raj Kumar', 'Driver', { teamId: 'T-A' }),
-    user('U-005', 'Lena Ho', 'Custodian', { teamId: 'T-A' }),
-    user('U-006', 'Sam Yeo', 'Custodian', { status: 'Locked' }),
-    user('U-007', 'Tom Chew', 'Custodian', { teamId: 'T-A' }),
-    user('U-008', 'Ali Rahim', 'Driver', { teamId: 'T-B' }),
-    user('U-009', 'Grace Lim', 'Custodian', { teamId: 'T-B' }),
-    user('U-010', 'Ken Ong', 'Custodian', { teamId: 'T-B' }),
-    user('U-011', 'Vik Shah', 'Driver', { teamId: 'T-C' }),
-    user('U-012', 'Mei Ling', 'Custodian', { teamId: 'T-C' }),
-    user('U-013', 'Joe Tan', 'Custodian', { teamId: 'T-C' }),
-    user('U-014', 'Dina Wu', 'Driver'),
-    user('U-015', 'Hari Raj', 'Custodian'),
+    user('U-004', 'Raj Kumar', 'Driver', { branchId: 'BR-001', teamId: 'T-A' }),
+    user('U-005', 'Lena Ho', 'Custodian', { branchId: 'BR-001', teamId: 'T-A' }),
+    user('U-006', 'Sam Yeo', 'Custodian', { branchId: 'BR-001', status: 'Locked' }),
+    user('U-007', 'Tom Chew', 'Custodian', { branchId: 'BR-001', teamId: 'T-A' }),
+    user('U-008', 'Ali Rahim', 'Driver', { branchId: 'BR-002', teamId: 'T-B' }),
+    user('U-009', 'Grace Lim', 'Custodian', { branchId: 'BR-002', teamId: 'T-B' }),
+    user('U-010', 'Ken Ong', 'Custodian', { branchId: 'BR-002', teamId: 'T-B' }),
+    user('U-011', 'Vik Shah', 'Driver', { branchId: 'BR-003', teamId: 'T-C' }),
+    user('U-012', 'Mei Ling', 'Custodian', { branchId: 'BR-003', teamId: 'T-C' }),
+    user('U-013', 'Joe Tan', 'Custodian', { branchId: 'BR-003', teamId: 'T-C' }),
+    user('U-014', 'Dina Wu', 'Driver', { branchId: 'BR-005' }),
+    user('U-015', 'Hari Raj', 'Custodian', { branchId: 'BR-005' }),
     user('U-016', 'Daniel Lim', 'Checker', { branchId: 'BR-002' }),
+    user('U-017', 'Nina Goh', 'Maker', { branchId: 'BR-002' }),
+    user('U-018', 'Ben Lee', 'Checker', { branchId: 'BR-001' }),
   ]
 
   const branch = (b: Omit<Branch, 'contactMobile' | 'contactEmail'>): Branch => ({
@@ -184,17 +186,17 @@ export function createSeed(now = new Date()): Db {
   })
 
   const requests: CashRequest[] = [
-    pending('REQ-1048', 'Deposit', 'BR-001', 250000, 1, 'Within 3 hours', 'U-002', 20),
-    pending('REQ-1050', 'Withdrawal', 'BR-002', 120000, 1, 'Within 5 hours', 'U-001', 45),
+    pending('REQ-1048', 'Deposit', 'BR-001', 250000, 1, 'Within 3 hours', 'U-001', 20),
+    pending('REQ-1050', 'Withdrawal', 'BR-002', 120000, 1, 'Within 5 hours', 'U-017', 45),
     pending('REQ-1049', 'Deposit', 'BR-003', 80000, 1, 'Within 1 hour', 'U-003', 60),
     pending('REQ-1051', 'Withdrawal', 'BR-004', 300000, 2, 'Within 1 day', 'U-002', 120),
-    pending('REQ-1052', 'Deposit', 'BR-005', 95000, 2, 'Within 2 days', 'U-001', 180),
+    pending('REQ-1052', 'Deposit', 'BR-005', 95000, 2, 'Within 2 days', 'U-002', 180),
     active('REQ-1042', 'Deposit', 'BR-001', 250000, 'In Transit', 'T-A', 1),
     active('REQ-1043', 'Deposit', 'BR-002', 180000, 'In Transit', 'T-B', 0),
     active('REQ-1045', 'Deposit', 'BR-003', 140000, 'In Transit', 'T-C', 3),
-    active('REQ-1039', 'Withdrawal', 'BR-004', 200000, 'Assigned', 'T-C', 5),
-    active('REQ-1038', 'Withdrawal', 'BR-005', 120000, 'Delivered', 'T-A', 12),
-    active('REQ-1047', 'Withdrawal', 'BR-005', 60000, 'Assigned', 'T-C', 14),
+    active('REQ-1039', 'Withdrawal', 'BR-003', 200000, 'Assigned', 'T-C', 5),
+    active('REQ-1038', 'Withdrawal', 'BR-001', 120000, 'Delivered', 'T-A', 12),
+    active('REQ-1047', 'Withdrawal', 'BR-003', 60000, 'Assigned', 'T-C', 14),
   ]
 
   const audit: AuditLog[] = [
@@ -203,7 +205,7 @@ export function createSeed(now = new Date()): Db {
     { id: 'A-0006', at: at(0, 9, 30, 48, 551), event: 'Assign', requestId: 'REQ-1043', userId: 'U-003', source: 'Web portal', gps: null },
     { id: 'A-0005', at: at(0, 9, 28, 10, 37), event: 'Approve', requestId: 'REQ-1043', userId: 'U-003', source: 'Web portal', gps: null },
     { id: 'A-0004', at: at(0, 9, 15, 33, 902), event: 'Reject', requestId: 'REQ-1041', userId: 'U-003', source: 'Web portal', gps: null },
-    { id: 'A-0003', at: at(0, 9, 12, 2, 460), event: 'Create', requestId: 'REQ-1048', userId: 'U-002', source: 'Web portal', gps: null },
+    { id: 'A-0003', at: at(0, 9, 12, 2, 460), event: 'Create', requestId: 'REQ-1048', userId: 'U-001', source: 'Web portal', gps: null },
     { id: 'A-0002', at: at(0, 8, 58, 19, 75), event: 'Cancel', requestId: 'REQ-1036', userId: 'U-001', source: 'Web portal', gps: null },
     { id: 'A-0001', at: at(0, 8, 40, 51, 640), event: 'In Transit', requestId: 'REQ-1035', userId: 'U-005', source: 'Mobile app', gps: '1.2995° N, 103.8554° E (±5 m)' },
   ]
@@ -235,7 +237,7 @@ export function createSeed(now = new Date()): Db {
   // The three trips shown in the design, most recent first.
   trips.push(
     { id: 'REQ-1035', date: day(-1), branchId: 'BR-003', type: 'Deposit', teamId: 'T-C', amount: 90000, currency: 'MMK', durationMin: 38, onTime: true },
-    { id: 'REQ-1038', date: day(0), branchId: 'BR-005', type: 'Withdrawal', teamId: 'T-A', amount: 120000, currency: 'MMK', durationMin: 51, onTime: false },
+    { id: 'REQ-1038', date: day(0), branchId: 'BR-001', type: 'Withdrawal', teamId: 'T-A', amount: 120000, currency: 'MMK', durationMin: 51, onTime: false },
     { id: 'REQ-1042', date: day(0), branchId: 'BR-001', type: 'Deposit', teamId: 'T-A', amount: 250000, currency: 'MMK', durationMin: 42, onTime: true },
   )
 
@@ -255,6 +257,6 @@ export function createSeed(now = new Date()): Db {
     notifications,
     session: null,
     failedAttempts: {},
-    seq: { request: 1053, user: 17, team: 4, audit: 9 },
+    seq: { request: 1053, user: 19, team: 4, audit: 9 },
   }
 }

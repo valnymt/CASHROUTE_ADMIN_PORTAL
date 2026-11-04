@@ -1,12 +1,13 @@
 import { useState, type DragEvent } from 'react'
-import { Avatar, Badge, Button, Card, ErrorBlock, Input, LoadingBlock, Modal, PageHeader, StatusBadge } from '@/components/ui'
+import { Avatar, Badge, Button, Card, ErrorBlock, Input, LoadingBlock, Modal, PageHeader, Select, StatusBadge } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import { TEAM_MIN, teamMix, teamRuleError } from '@/lib/teams'
+import { branchScope } from '@/lib/scope'
+import { TEAM_MIN, teamBranchError, teamBranchId, teamMix, teamRuleError } from '@/lib/teams'
 import { api, ApiError } from '@/services/api'
 import { useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
 import { useAuth } from '@/store/auth'
-import type { Team, User } from '@/types'
+import type { Branch, Team, User } from '@/types'
 import UsersTabs from './UsersTabs'
 
 /** AP-03 · Delivery Teams — group drivers/custodians into operational units. */
@@ -17,6 +18,7 @@ export default function Teams() {
 
   const { data: teams, error, reload } = useApi(() => api.teams.list())
   const { data: users } = useApi(() => api.users.list())
+  const { data: branches } = useApi(() => api.branches.list())
   const invalidate = useInvalidate()
   const toast = useToast()
   const [editing, setEditing] = useState<Team | 'new' | null>(null)
@@ -24,11 +26,16 @@ export default function Teams() {
   const [addFor, setAddFor] = useState<User | null>(null)
 
   if (error) return <ErrorBlock error={error} onRetry={reload} />
-  if (!teams || !users) return <LoadingBlock />
+  if (!teams || !users || !branches) return <LoadingBlock />
 
-  const delivery = users.filter((u) => u.role === 'Driver' || u.role === 'Custodian')
+  // Branch Makers / Checkers only see teams + delivery members from their own branch.
+  const scope = branchScope(user, branches)
+  const visibleTeams = scope ? teams.filter((t) => teamBranchId(t.memberIds, users) === scope) : teams
+  const delivery = users.filter((u) => (u.role === 'Driver' || u.role === 'Custodian') && (!scope || u.branchId === scope))
   const unassigned = delivery.filter((u) => !teams.some((t) => t.memberIds.includes(u.id)))
   const byId = (id: string) => users.find((u) => u.id === id)
+  const branchName = (id: string | null | undefined) => (id ? (branches.find((b) => b.id === id)?.name ?? id) : 'No branch')
+  const teamBranch = (t: Team) => teamBranchId(t.memberIds, users)
 
   const moveTo = async (userId: string, team: Team) => {
     if (team.memberIds.includes(userId)) return
@@ -42,9 +49,13 @@ export default function Teams() {
   }
 
   const removeFrom = async (userId: string, team: Team) => {
-    await api.teams.update(team.id, { name: team.name, memberIds: team.memberIds.filter((m) => m !== userId) })
-    invalidate()
-    toast(`${byId(userId)?.name} moved to unassigned.`, 'info')
+    try {
+      await api.teams.update(team.id, { name: team.name, memberIds: team.memberIds.filter((m) => m !== userId) })
+      invalidate()
+      toast(`${byId(userId)?.name} moved to unassigned.`, 'info')
+    } catch (e) {
+      toast((e as ApiError).message, 'error')
+    }
   }
 
   /** Lock the team in once it has at least 1 driver + 2 custodians. */
@@ -82,7 +93,7 @@ export default function Teams() {
       <UsersTabs />
       <PageHeader
         title="Delivery Team Grouping"
-        subtitle="Bundle delivery members into named operational units"
+        subtitle="Bundle delivery members from the same branch into named operational units"
         // actions={<Button onClick={() => setEditing('new')}>+ Create Team</Button>}
         actions={
           !isReadOnly ? (
@@ -92,13 +103,16 @@ export default function Teams() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {teams.map((t) => {
+        {visibleTeams.map((t) => {
           // A team out on a delivery is locked: no drag in/out, no remove, no edit.
           const locked = t.status === 'On trip'
           return (
             <Card key={t.id} padded={false} className={cn('flex flex-col p-4 transition', dropTarget === t.id && 'ring-4 ring-violet/30')}>
               <div {...(locked || isReadOnly ? {} : dropProps(t.id, (id) => moveTo(id, t)))} className="flex flex-1 flex-col">
                 <p className="text-[16px] font-bold text-ink">{t.name}</p>
+                <p className="mt-0.5 truncate text-[12px] font-semibold text-violet">
+                  {t.memberIds.length ? branchName(teamBranch(t)) : 'No branch yet'}
+                </p>
                 <div className="mt-1 mb-3 flex items-center justify-between">
                   <span className="text-[11px] text-ink-60">
                     {teamMix(t.memberIds, users).drivers}/{TEAM_MIN.Driver} driver · {teamMix(t.memberIds, users).custodians}/
@@ -126,6 +140,7 @@ export default function Teams() {
                       <MemberRow
                         key={id}
                         user={u}
+                        branch={branchName(u.branchId)}
                         onRemove={locked || isReadOnly ? undefined : () => removeFrom(id, t)}
                       />
                     ) : null
@@ -182,7 +197,9 @@ export default function Teams() {
                     <Avatar name={u.name} size={30} />
                     <span className="min-w-0 leading-tight">
                       <span className="block truncate text-[12px] font-bold text-ink">{u.name}</span>
-                      <span className="block text-[10px] text-ink-60">{u.role}</span>
+                      <span className="block truncate text-[10px] text-ink-60">
+                        {u.role} · {branchName(u.branchId)}
+                      </span>
                     </span>
                   </span>
                   {/* <button type="button" onClick={() => setAddFor(u)} className="shrink-0 text-[11px] font-bold text-violet hover:underline">
@@ -205,12 +222,28 @@ export default function Teams() {
       </div>
 
       {editing && (
-        <TeamForm team={editing === 'new' ? null : editing} delivery={delivery} teams={teams} onClose={() => setEditing(null)} />
+        <TeamForm
+          team={editing === 'new' ? null : editing}
+          delivery={delivery}
+          teams={teams}
+          branches={branches}
+          initialBranch={editing === 'new' ? null : teamBranch(editing)}
+          onClose={() => setEditing(null)}
+        />
       )}
 
-      <Modal open={!isReadOnly && !!addFor} onClose={() => setAddFor(null)} size="sm" title={`Add ${addFor?.name ?? ''} to…`}>
+      <Modal
+        open={!isReadOnly && !!addFor}
+        onClose={() => setAddFor(null)}
+        size="sm"
+        title={`Add ${addFor?.name ?? ''} to…`}
+        subtitle={addFor ? `Only teams from ${branchName(addFor.branchId)} (or empty teams) are listed` : undefined}
+      >
         <ul className="flex flex-col gap-2 pb-2">
-          {teams.map((t) => (
+          {addFor && !teams.some((t) => !t.memberIds.length || teamBranch(t) === addFor.branchId) && (
+            <li className="py-4 text-center text-[12px] text-ink-38">No team from this branch yet. Create one first.</li>
+          )}
+          {teams.filter((t) => addFor && (!t.memberIds.length || teamBranch(t) === addFor.branchId)).map((t) => (
             <li key={t.id}>
               <button
                 type="button"
@@ -238,7 +271,7 @@ export default function Teams() {
 }
 
 /** `onRemove` omitted = locked (team on a trip): not draggable, no remove button. */
-function MemberRow({ user, onRemove }: { user: User; onRemove?: () => void }) {
+function MemberRow({ user, branch, onRemove }: { user: User; branch: string; onRemove?: () => void }) {
   return (
     <li
       draggable={!!onRemove}
@@ -249,7 +282,9 @@ function MemberRow({ user, onRemove }: { user: User; onRemove?: () => void }) {
         <Avatar name={user.name} size={30} />
         <span className="min-w-0 leading-tight">
           <span className="block truncate text-[12px] font-bold text-ink">{user.name}</span>
-          <span className="block text-[10px] text-ink-60">{user.role}</span>
+          <span className="block truncate text-[10px] text-ink-60">
+            {user.role} · {branch}
+          </span>
         </span>
       </span>
       {onRemove && (
@@ -266,20 +301,43 @@ function MemberRow({ user, onRemove }: { user: User; onRemove?: () => void }) {
   )
 }
 
-function TeamForm({ team, delivery, teams, onClose }: { team: Team | null; delivery: User[]; teams: Team[]; onClose: () => void }) {
+function TeamForm({
+  team,
+  delivery,
+  teams,
+  branches,
+  initialBranch,
+  onClose,
+}: {
+  team: Team | null
+  delivery: User[]
+  teams: Team[]
+  branches: Branch[]
+  initialBranch: string | null
+  onClose: () => void
+}) {
   const invalidate = useInvalidate()
   const toast = useToast()
   const [name, setName] = useState(team?.name ?? `Team ${String.fromCharCode(65 + teams.length)}`)
   const [members, setMembers] = useState<string[]>(team?.memberIds ?? [])
+  const [branchId, setBranchId] = useState(initialBranch ?? '')
   const [error, setError] = useState<string>()
   const [ruleError, setRuleError] = useState<string>()
   const [busy, setBusy] = useState(false)
 
-  // People already in another team aren't offered: only unassigned ones and this team's own members.
+  // Only the chosen branch's people who aren't already in another team (plus this team's own members).
   const pickable = delivery.filter((u) => {
     const t = teams.find((x) => x.memberIds.includes(u.id))
-    return !t || t.id === team?.id
+    return u.branchId === branchId && (!t || t.id === team?.id)
   })
+  const branchOptions = branches
+    .filter((b) => b.active && delivery.some((u) => u.branchId === b.id))
+    .map((b) => ({ value: b.id, label: `${b.name} (${b.code})` }))
+  const pickBranch = (id: string) => {
+    setBranchId(id)
+    setMembers([])
+    setRuleError(undefined)
+  }
   const mix = teamMix(members, delivery)
   const toggle = (id: string) => {
     setRuleError(undefined)
@@ -287,7 +345,9 @@ function TeamForm({ team, delivery, teams, onClose }: { team: Team | null; deliv
   }
 
   const save = async (confirmed: boolean) => {
-    const rule = confirmed ? teamRuleError(members, delivery) : null
+    const rule = !branchId
+      ? 'Select a branch.'
+      : (teamBranchError(members, delivery) ?? (confirmed ? teamRuleError(members, delivery) : null))
     if (rule) {
       setRuleError(rule)
       return
@@ -313,7 +373,7 @@ function TeamForm({ team, delivery, teams, onClose }: { team: Team | null; deliv
       open
       onClose={onClose}
       title={team ? `Edit ${team.name}` : 'Create Team'}
-      subtitle={`Save as a draft anytime. To confirm, pick at least ${TEAM_MIN.Driver} driver and ${TEAM_MIN.Custodian} custodians. People already in another team aren't listed.`}
+      subtitle={`Pick a branch, then its members. Save as a draft anytime. To confirm, pick at least ${TEAM_MIN.Driver} driver and ${TEAM_MIN.Custodian} custodians. People already in another team aren't listed.`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -330,6 +390,15 @@ function TeamForm({ team, delivery, teams, onClose }: { team: Team | null; deliv
     >
       <div className="grid gap-4">
         <Input label="Team name" value={name} onChange={(e) => setName(e.target.value)} error={error} />
+        <Select
+          label="Branch"
+          placeholder="Select branch"
+          value={branchId}
+          onChange={(e) => pickBranch(e.target.value)}
+          options={branchOptions}
+          hint="All members must be from this branch. Changing it clears the picked members."
+          required
+        />
         <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold">
           <Badge tone={mix.drivers >= TEAM_MIN.Driver ? 'lime' : 'neutral'}>
             Driver {mix.drivers}/{TEAM_MIN.Driver}
@@ -339,7 +408,9 @@ function TeamForm({ team, delivery, teams, onClose }: { team: Team | null; deliv
           </Badge>
           {ruleError && <span className="text-danger">{ruleError}</span>}
         </div>
-        {pickable.length === 0 && <p className="text-[12px] text-ink-60">No unassigned drivers or custodians. Add them in User Accounts first.</p>}
+        {branchId && pickable.length === 0 && (
+          <p className="text-[12px] text-ink-60">No unassigned drivers or custodians at this branch. Add them in User Accounts first.</p>
+        )}
         <ul className="-mr-2 grid max-h-[340px] gap-2 overflow-y-auto pr-2 sm:grid-cols-2">
           {pickable.map((u) => {
             const on = members.includes(u.id)

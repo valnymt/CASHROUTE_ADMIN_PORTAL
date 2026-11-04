@@ -9,6 +9,8 @@ interface AuthState {
   loggedOut: boolean
   login: (username: string, password: string) => Promise<User>
   logout: () => Promise<void>
+  /** Re-fetch /me — used after flows that sign the user in outside of login(), e.g. OTP reset. */
+  refreshFromServer: () => Promise<void>
   isMaker: boolean
   isChecker: boolean
   isSuperAdmin: boolean
@@ -42,6 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  const refreshFromServer = useCallback(async () => {
+    try {
+      const u = await api.auth.me()
+      setLoggedOut(false)
+      setUser(u)
+    } catch {
+      setUser(null)
+    }
+  }, [])
+
   const role = user?.role
   return (
     <AuthCtx.Provider
@@ -51,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loggedOut,
         login,
         logout,
+        refreshFromServer,
         isMaker: role === 'Maker',
         isChecker: role === 'Checker' || role === 'Super Admin',
         isSuperAdmin: role === 'Super Admin',

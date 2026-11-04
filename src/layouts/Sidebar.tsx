@@ -1,9 +1,11 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import type { ComponentType, SVGProps } from 'react'
+import { useState, type ComponentType, type SVGProps } from 'react'
 import Logo from '@/components/Logo'
 import { IconBuilding, IconChart, IconHistory, IconCheckCircle, IconDoc, IconPin, IconPlus, IconUsers, IconX } from '@/components/icons'
+import ProfilePanel from '@/components/ProfilePanel'
 import { Avatar, IconButton } from '@/components/ui'
 import { cn } from '@/lib/cn'
+import { branchScope } from '@/lib/scope'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi } from '@/store/data'
@@ -23,52 +25,61 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const [profileOpen, setProfileOpen] = useState(false)
   // Poll every 30 s so Approvals / Live Monitoring badges update when another
   // user (e.g. a Maker on their own device) creates or finishes a request.
   const { data: requests } = useApi(() => api.requests.list(), [], { pollMs: 30_000 })
+  const { data: branches } = useApi(() => api.branches.list())
 
   const onRoad = requests?.filter((r) => r.status === 'In Transit' || r.status === 'Assigned').length
-  const toReview = requests?.filter((r) => r.status === 'Pending' && r.createdBy !== user?.id).length
+  const scope = branches ? branchScope(user, branches) : null
+  const toReview = requests?.filter((r) => r.status === 'Pending' && r.createdBy !== user?.id && (!scope || r.branchId === scope)).length
 
-  const sections: { heading: string; items: NavItem[] }[] = [
-    { heading: 'OVERVIEW', items: [] },
-    {
-      heading: 'OPERATIONS',
-      items: [
-        { to: '/live', label: 'Live Monitoring', Icon: IconPin, count: onRoad, countTone: 'lime' },
-        { to: '/requests/new', label: 'New Cash Request', Icon: IconPlus },
-        { to: '/approvals', label: 'Approvals', Icon: IconCheckCircle, count: toReview, countTone: 'violet' },
-      ],
-    },
+  // Sidebar is scoped per role:
+  //  - Super Admin → sees everything
+  //  - Checker     → Live Monitoring, Approvals, Users & Teams, Trip History (own branch)
+  //  - Maker       → Live Monitoring, New Cash Request, Users & Teams, Trip History (own branch)
+  const isSuperAdmin = user?.role === 'Super Admin'
+  const isChecker = user?.role === 'Checker'
+  const isMaker = user?.role === 'Maker'
 
-    // heading: 'MANAGEMENT',
-    // items: [
-    //   { to: '/branches', label: 'Branches', Icon: IconBuilding },
-    //   { to: '/users', label: 'Users & Teams', Icon: IconUsers, match: ['/teams'] },
-    // ],
-    {
-      heading: 'MANAGEMENT',
-      items: [
-        { to: '/branches', label: 'Branches', Icon: IconBuilding },
-        {
-          to: user?.role === 'Checker' ? '/teams' : '/users',
-          label: 'Users & Teams',
-          Icon: IconUsers,
-          match: user?.role === 'Checker' ? ['/teams'] : ['/users', '/teams'],
-        },
-      ],
-    },
+  const live: NavItem = { to: '/live', label: 'Live Monitoring', Icon: IconPin, count: onRoad, countTone: 'lime' }
+  const newRequest: NavItem = { to: '/requests/new', label: 'New Cash Request', Icon: IconPlus }
+  const approvals: NavItem = { to: '/approvals', label: 'Approvals', Icon: IconCheckCircle, count: toReview, countTone: 'violet' }
+  const branchesItem: NavItem = { to: '/branches', label: 'Branches', Icon: IconBuilding }
+  const usersTeams: NavItem = {
+    to: isChecker ? '/teams' : '/users',
+    label: 'Users & Teams',
+    Icon: IconUsers,
+    match: isChecker ? ['/teams'] : ['/users', '/teams'],
+  }
+  const audit: NavItem = { to: '/audit', label: 'Audit Trail', Icon: IconDoc }
+  const reports: NavItem = { to: '/reports', label: 'Reports', Icon: IconChart, end: true }
+  const history: NavItem = { to: '/history', label: 'Trip History', Icon: IconHistory, match: ['/history', '/reports/'] }
 
-    {
-      heading: 'INSIGHTS',
-      items: [
-        { to: '/audit', label: 'Audit Trail', Icon: IconDoc },
-        { to: '/reports', label: 'Reports', Icon: IconChart, end: true },
-        // Trip detail pages (/reports/{id}) are opened from here, so keep this item lit on them.
-        { to: '/history', label: 'Trip History', Icon: IconHistory, match: ['/history', '/reports/'] },
-      ],
-    },
-  ]
+  let sections: { heading: string; items: NavItem[] }[]
+  if (isMaker) {
+    sections = [
+      { heading: 'OPERATIONS', items: [live, newRequest] },
+      { heading: 'MANAGEMENT', items: [usersTeams] },
+      { heading: 'INSIGHTS', items: [history] },
+    ]
+  } else if (isChecker) {
+    sections = [
+      { heading: 'OPERATIONS', items: [live, approvals] },
+      { heading: 'MANAGEMENT', items: [usersTeams] },
+      { heading: 'INSIGHTS', items: [history] },
+    ]
+  } else {
+    // Super Admin — full menu
+    sections = [
+      { heading: 'OPERATIONS', items: [live, newRequest, approvals] },
+      { heading: 'MANAGEMENT', items: [branchesItem, usersTeams] },
+      { heading: 'INSIGHTS', items: [audit, reports, history] },
+    ]
+  }
+  // Suppress TS "unused" when a role doesn't use the full menu.
+  void isSuperAdmin
 
   const onLogout = async () => {
     await logout()
@@ -76,9 +87,9 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
   }
 
   return (
-    <nav aria-label="Main" className="glass flex h-full w-[256px] flex-col overflow-hidden rounded-[28px] pl-3 pr-0">
-      <div className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-[1px] overflow-y-auto px-2 pt-[22px] pb-[18px]">
-        <div className="flex items-start justify-between px-1.5 pb-3.5">
+    <nav aria-label="Main" className="glass flex h-full w-[260px] flex-col overflow-hidden rounded-[28px] px-3">
+      <div className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-2 pt-7 pb-6">
+        <div className="flex items-start justify-between px-1.5 pb-4">
           <Logo />
           {onClose && (
             <IconButton label="Close menu" onClick={onClose} className="lg:hidden">
@@ -87,9 +98,9 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
           )}
         </div>
 
-        {sections.map((s) => (
-          <div key={s.heading} className="flex flex-col gap-[3px]">
-            <p className="px-2 pt-3 pb-1 text-[10px] font-bold text-ink-38">{s.heading}</p>
+        {sections.filter((s) => s.items.length > 0).map((s) => (
+          <div key={s.heading} className="flex flex-col gap-1.5 pt-2">
+            <p className="px-2 pt-1 pb-1 text-[10px] font-bold tracking-wider text-ink-38">{s.heading}</p>
             {s.items.map(({ to, label, Icon, count, countTone, match, end }) => (
               <NavLink
                 key={to}
@@ -99,10 +110,10 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
                 className={({ isActive }) => {
                   const active = isActive || match?.some((m) => pathname.startsWith(m))
                   return cn(
-                    'flex h-[42px] shrink-0 items-center justify-between rounded-[21px] pr-3 pl-3.5 text-[14px] transition',
+                    'flex h-[42px] shrink-0 items-center justify-between rounded-[22px] pr-3.5 pl-4 text-[14px] transition',
                     active
                       ? 'bg-gradient-to-r from-violet to-violet-2 font-bold text-white shadow-violet'
-                      : 'font-medium text-ink hover:bg-white/70',
+                      : 'bg-[#D1D3FF]/45 font-medium text-ink hover:bg-white hover:shadow-plum',
                   )
                 }}
               >
@@ -132,35 +143,32 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
           </div>
         ))}
 
-        <div className="min-h-6 flex-1" />
+        <div className="min-h-10 flex-1" />
 
         {user && (
-          <div className="flex shrink-0 items-center gap-2.5 px-1 pt-2.5 pb-1">
+          <button
+            type="button"
+            onClick={() => { onNavigate?.(); setProfileOpen(true) }}
+            className="flex w-full shrink-0 items-center gap-2.5 rounded-[22px] px-1.5 py-2 text-left transition hover:bg-white"
+            aria-label="Open profile"
+          >
             <Avatar name={user.name} size={38} />
-            <div className="min-w-0 leading-tight">
+            <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-[13px] font-bold text-ink">{user.name}</p>
               <p className="truncate text-[11px] text-ink-60">{user.role}</p>
             </div>
-          </div>
+            <span className="pr-1 text-[11px] font-bold text-violet">View</span>
+          </button>
         )}
         <button
           type="button"
-          onClick={() => {
-            onNavigate?.()
-            navigate('/account/password')
-          }}
-          className="self-start text-[11px] font-semibold text-violet hover:underline"
-        >
-          Change password
-        </button>
-        <button
-          type="button"
           onClick={onLogout}
-          className="mt-1 w-full shrink-0 rounded-[22px] border border-white/95 bg-white/60 px-3 py-2.5 text-[13px] font-semibold text-ink-60 transition hover:bg-white hover:text-ink"
+          className="mt-3 w-full shrink-0 rounded-[22px] border border-white/95 bg-white/60 px-3 py-2.5 text-[13px] font-semibold text-ink-60 transition hover:bg-white hover:text-ink"
         >
           Log out
         </button>
       </div>
+      <ProfilePanel open={profileOpen} onClose={() => setProfileOpen(false)} />
     </nav>
   )
 }

@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button, ErrorBlock, FilterDropdown, Input, LoadingBlock, Modal, PageHeader, SearchInput, Select, StatusBadge, Toggle } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { nextUserId } from '@/lib/ids'
+import { branchScope } from '@/lib/scope'
 import { api, ApiError, type UserInput } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi, useInvalidate } from '@/store/data'
@@ -39,16 +40,19 @@ export default function Users() {
   const setEditing = (u: User | 'new' | null) =>
     navigate(u === null ? '/users' : u === 'new' ? '/users/create' : `/users/${u.id}/edit`)
 
-  const where = (u: User) =>
-    u.teamId
-      ? (teams?.find((t) => t.id === u.teamId)?.name ?? u.teamId)
-      : u.branchId
-        ? (branches?.find((b) => b.id === u.branchId)?.name ?? u.branchId)
-        : 'Unassigned'
+  const where = (u: User) => {
+    const branch = u.branchId ? (branches?.find((b) => b.id === u.branchId)?.name ?? u.branchId) : 'No branch'
+    const team = u.teamId ? (teams?.find((t) => t.id === u.teamId)?.name ?? u.teamId) : null
+    return team ? `${branch} · ${team}` : branch
+  }
 
+  // Branch Makers / Checkers only see users from their own branch.
+  // Delivery members (drivers/custodians) belonging to that same branch are shown too.
+  const scope = branches ? branchScope(user, branches) : null
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
     return (users ?? []).filter((u) => {
+      if (scope && u.branchId !== scope) return false
       const okRole =
         role === 'all' ||
         // (role === 'admin' && u.role === 'Super Admin') ||
@@ -57,7 +61,7 @@ export default function Users() {
         (role === 'delivery' && (u.role === 'Driver' || u.role === 'Custodian'))
       return okRole && (!s || `${u.name} ${u.username} ${u.id} ${u.email}`.toLowerCase().includes(s))
     })
-  }, [users, q, role])
+  }, [users, q, role, scope])
 
   return (
     <>
@@ -151,6 +155,9 @@ function UserForm({
   const [confirm, setConfirm] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  // Shown after a successful Reactivate so the Super Admin can read the
+  // one-time password back to the user.
+  const [reactivated, setReactivated] = useState<{ tempPassword: string; sentTo: string } | null>(null)
   const isDelivery = form.role === 'Driver' || form.role === 'Custodian'
   /** Every new user gets a default password: portal roles sign in to the portal, delivery staff to the mobile app. */
   const needsPassword = !user
@@ -162,6 +169,20 @@ function UserForm({
       delete next[k as string]
       return next
     })
+  }
+
+  const reactivate = async () => {
+    if (!user) return
+    setBusy(true)
+    try {
+      const res = await api.users.reactivate(user.id)
+      invalidate()
+      setReactivated({ tempPassword: res.tempPassword, sentTo: res.sentTo })
+    } catch (err) {
+      toast((err as ApiError).message, 'error')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const submit = async (e?: FormEvent) => {
@@ -199,7 +220,7 @@ function UserForm({
 
     setBusy(true)
     try {
-      const payload = { ...form, branchId: isDelivery ? null : form.branchId, ...(needsPassword ? { password } : {}) }
+      const payload = { ...form, ...(needsPassword ? { password } : {}) }
       if (user) await api.users.update(user.id, payload)
       else await api.users.create(payload)
       invalidate()
@@ -214,6 +235,38 @@ function UserForm({
     }
   }
 
+  const isLocked = user?.status === 'Locked'
+
+  if (reactivated) {
+    return (
+      <Modal
+        open
+        onClose={() => { setReactivated(null); onClose() }}
+        size="sm"
+        title="Account reactivated"
+        subtitle={`${form.name} can sign in with the one-time password below. They'll be forced to change it immediately.`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={async () => { await navigator.clipboard.writeText(reactivated.tempPassword).catch(() => {}); toast('Copied to clipboard.') }}>
+              Copy password
+            </Button>
+            <Button onClick={() => { setReactivated(null); onClose() }}>Done</Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <div className="rounded-[18px] bg-periwinkle-18 px-4 py-3">
+            <p className="text-[11px] font-bold text-plum">One-time password</p>
+            <p className="mt-1 font-mono text-[18px] font-bold tracking-[0.1em] text-ink select-all">{reactivated.tempPassword}</p>
+          </div>
+          <p className="text-[12px] text-ink-60">
+            Sent to <b>{reactivated.sentTo}</b>. Share it with the user if the email didn't arrive. They can change it to anything they like on their first sign-in.
+          </p>
+        </div>
+      </Modal>
+    )
+  }
+
   return (
     <Modal
       open
@@ -224,6 +277,11 @@ function UserForm({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
+          {isLocked && (
+            <Button variant="danger-soft" onClick={reactivate} loading={busy}>
+              Reactivate &amp; reset password
+            </Button>
+          )}
           <Button onClick={() => submit()} loading={busy}>
             Save User
           </Button>
@@ -248,13 +306,15 @@ function UserForm({
           error={errors.role}
           required
         />
-        {form.role && !isDelivery && (
+        {form.role && (
           <Select
             label="Branch"
             placeholder="Select branch"
             value={form.branchId ?? ''}
             onChange={(e) => set('branchId', e.target.value || null)}
             options={branchOptions}
+            error={errors.branchId}
+            required
           />
         )}
         {needsPassword && (
@@ -293,7 +353,11 @@ function UserForm({
             />
           </div>
         )}
-        {isDelivery && <p className="text-[12px] text-ink-60">Delivery staff are grouped under Users & Teams → Delivery Teams.</p>}
+        {isDelivery && (
+          <p className="text-[12px] text-ink-60">
+            Delivery staff are grouped under Users & Teams → Delivery Teams, with teammates from the same branch.
+          </p>
+        )}
         <Toggle
           checked={form.status === 'Active'}
           onChange={(v) => set('status', v ? 'Active' : 'Locked')}

@@ -1,7 +1,8 @@
 import type { AuditLog, CashRequest, User } from '@/types'
 import { BRANCH_DIRECTORY, createSeed, DEMO_PASSWORD, type Db } from '@/lib/seed'
 import { nextUserId } from '@/lib/ids'
-import { teamRuleError } from '@/lib/teams'
+import { branchScope } from '@/lib/scope'
+import { teamBranchError, teamBranchId, teamRuleError } from '@/lib/teams'
 import { ApiError, type Api, type BranchInput, type RequestInput, type UserInput } from './types'
 
 /**
@@ -11,7 +12,7 @@ import { ApiError, type Api, type BranchInput, type RequestInput, type UserInput
  * network call, so loading states are exercised.
  */
 
-const STORAGE_KEY = 'cashroute.mockdb.v8'
+const STORAGE_KEY = 'cashroute.mockdb.v9'
 const MAX_ATTEMPTS = 5
 const LATENCY = 180
 
@@ -66,6 +67,15 @@ function currentUser(): User {
 const canMake = (u: User) => u.role === 'Maker' || u.role === 'Super Admin'
 const canCheck = (u: User) => u.role === 'Checker' || u.role === 'Super Admin'
 const portalRoles: User['role'][] = ['Super Admin', 'Maker', 'Checker']
+
+/** Branch Makers/Checkers only act on their own branch's requests; Super Admin and HQ staff act on all. */
+function assertBranch(me: User, branchId: string, action: string) {
+  const scope = branchScope(me, db.branches)
+  if (scope && scope !== branchId) {
+    const name = db.branches.find((b) => b.id === scope)?.name ?? scope
+    throw new ApiError(`You can only ${action} requests for your own branch (${name}).`, 'forbidden', 403, { branchId: `Only ${name} is allowed.` })
+  }
+}
 
 function audit(event: AuditLog['event'], requestId: string, userId: string) {
   db.audit.unshift({
@@ -129,6 +139,10 @@ function validateUser(data: UserInput, id?: string) {
   else if (db.users.some((u) => u.email.toLowerCase() === data.email.toLowerCase() && u.id !== id))
     fields.email = 'This email is already registered.'
   if (data.mobile && !/^\+?[\d\s-]{6,}$/.test(data.mobile)) fields.mobile = 'Enter a valid mobile number.'
+  if (!data.branchId) fields.branchId = 'Select a branch.'
+  const current = id ? db.users.find((u) => u.id === id) : undefined
+  if (current?.teamId && (current.branchId !== data.branchId || current.role !== data.role))
+    fields.branchId = 'Remove this member from their team before changing branch or role.'
   // Every new user needs a default password (portal or mobile app; they change it later themselves).
   if (!id) {
     if (!data.password) fields.password = 'Set a default password.'
@@ -137,9 +151,9 @@ function validateUser(data: UserInput, id?: string) {
   if (Object.keys(fields).length) throw new ApiError('Please fix the highlighted fields.', 'validation', 422, fields)
 }
 
-/** Confirming a team requires at least 1 driver + 2 custodians. Drafts can have any members. */
+/** Members always share one branch; confirming also requires at least 1 driver + 2 custodians. */
 function checkTeamRule(memberIds: string[], confirmed?: boolean) {
-  const err = confirmed ? teamRuleError(memberIds, db.users) : null
+  const err = teamBranchError(memberIds, db.users) ?? (confirmed ? teamRuleError(memberIds, db.users) : null)
   if (err) throw new ApiError(err, 'validation', 422, { members: err })
 }
 
@@ -207,7 +221,6 @@ export const mockApi: Api = {
           throw new ApiError('Choose a password different from the current one.', 'validation', 422, { password: 'Choose a password different from the current one.' })
         u.password = newPassword
       }),
-
   },
 
   branches: {
@@ -259,6 +272,16 @@ export const mockApi: Api = {
         if (u.status === 'Active') db.failedAttempts[u.username.toLowerCase()] = 0
         return u
       }),
+    reactivate: (id) =>
+      respond(() => {
+        const u = db.users.find((x) => x.id === id)
+        if (!u) throw new ApiError('User not found.', 'not_found', 404)
+        const tempPassword = `${u.username}-${new Date().getFullYear()}`
+        u.status = 'Active'
+        u.password = tempPassword
+        db.failedAttempts[u.username.toLowerCase()] = 0
+        return { user: u, tempPassword, sentTo: u.email }
+      }),
   },
 
   teams: {
@@ -297,6 +320,7 @@ export const mockApi: Api = {
         const me = currentUser()
         if (!canMake(me)) throw new ApiError('Only Makers can create requests.', 'forbidden', 403)
         validateRequest(data)
+        assertBranch(me, data.branchId, 'create')
         const now = new Date().toISOString()
         const r: CashRequest = {
           ...data,
@@ -320,6 +344,7 @@ export const mockApi: Api = {
         const me = currentUser()
         const r = ownPendingRequest(id, me, 'edit')
         validateRequest(data)
+        assertBranch(me, data.branchId, 'create')
         Object.assign(r, data)
         r.timeline.push({ label: 'Edited by Maker', by: me.name, at: new Date().toISOString() })
         audit('Edit', r.id, me.id)
@@ -334,6 +359,7 @@ export const mockApi: Api = {
         const byChecker = r.status === 'Approved' || r.status === 'Assigned'
         if (byChecker) {
           if (!canCheck(me)) throw new ApiError('Only Checkers can cancel an approved request.', 'forbidden', 403)
+          assertBranch(me, r.branchId, 'cancel')
           if (!reason.trim())
             throw new ApiError('A reason is required.', 'validation', 422, { reason: 'Enter why this approved request is being cancelled.' })
           const team = db.teams.find((t) => t.id === r.teamId)
@@ -361,6 +387,7 @@ export const mockApi: Api = {
         const me = currentUser()
         const r = findRequest(id)
         if (!canCheck(me)) throw new ApiError('Only Checkers can approve requests.', 'forbidden', 403)
+        assertBranch(me, r.branchId, 'approve')
         if (r.createdBy === me.id)
           throw new ApiError('Maker-Checker rule: you cannot approve a request you created.', 'maker_checker', 403)
         if (r.status !== 'Pending') throw new ApiError(`Request is already ${r.status.toLowerCase()}.`, 'conflict', 409)
@@ -374,6 +401,7 @@ export const mockApi: Api = {
         const me = currentUser()
         const r = findRequest(id)
         if (!canCheck(me)) throw new ApiError('Only Checkers can reject requests.', 'forbidden', 403)
+        assertBranch(me, r.branchId, 'reject')
         if (r.createdBy === me.id)
           throw new ApiError('Maker-Checker rule: you cannot reject a request you created.', 'maker_checker', 403)
         if (!reason.trim())
@@ -394,6 +422,10 @@ export const mockApi: Api = {
         if (!t) throw new ApiError('Select a team.', 'validation', 422)
         if (t.status !== 'Available') throw new ApiError(`${t.name} is on a trip.`, 'conflict', 409)
         if (!t.confirmed) throw new ApiError(`${t.name} isn't confirmed yet. Confirm it in Delivery Teams first.`, 'conflict', 409)
+        if (teamBranchId(t.memberIds, db.users) !== r.branchId) {
+          const name = db.branches.find((b) => b.id === r.branchId)?.name ?? r.branchId
+          throw new ApiError(`${t.name} is not from ${name}. Assign a team from the request's branch.`, 'validation', 422)
+        }
         r.status = 'Assigned'
         r.teamId = t.id
         r.timeline.push({ label: `${t.name} assigned`, by: me.name, at: new Date().toISOString() })

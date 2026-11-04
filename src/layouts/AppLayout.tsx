@@ -26,7 +26,6 @@ const META: { path: string; crumbs: string[]; title: string }[] = [
   { path: '/reports/:id', crumbs: ['Insights', 'Trip History', ':id'], title: 'Trip History' },
   { path: '/history', crumbs: ['Insights', 'Trip History'], title: 'Trip History' },
   { path: '/reports', crumbs: ['Insights', 'Reports'], title: 'Reports' },
-  { path: '/account/password', crumbs: ['Account', 'Change password'], title: 'Account' },
 ]
 
 /**
@@ -119,7 +118,7 @@ export default function AppLayout() {
     <IdleTimeoutProvider>
       <Backdrop />
       <div className="flex min-h-dvh gap-5 p-3 sm:p-4 lg:p-6">
-        {/* Desktop: sticky sidebar */}
+        {/* Desktop: sticky sidebar that fills the viewport height, matching the right-side pane. */}
         <div className="sticky top-6 hidden h-[calc(100dvh-48px)] shrink-0 lg:block">
           <Sidebar />
         </div>

@@ -4,7 +4,9 @@ import { Badge, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInpu
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { fmtDate, fmtMoney } from '@/lib/format'
+import { branchScope } from '@/lib/scope'
 import { api } from '@/services/api'
+import { useAuth } from '@/store/auth'
 import { useApi } from '@/store/data'
 import type { Trip } from '@/types'
 
@@ -13,9 +15,12 @@ type Result = 'all' | 'on' | 'late'
 /** Trip History — the full log of completed trips, scrolling inside one card. */
 export default function History() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { data: trips, error, reload } = useApi(() => api.trips.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
+  // Branch Makers / Checkers see only their own branch's trips.
+  const scope = branches ? branchScope(user, branches) : null
   // Reports can deep-link into this page with ?q=&from=&to=&result=&dow= preset.
   // dow is 0 (Mon) … 4 (Fri); -1 means "any day".
   const [params] = useSearchParams()
@@ -31,13 +36,14 @@ export default function History() {
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
     return (trips ?? [])
+      .filter((t) => !scope || t.branchId === scope)
       .filter((t) => (!from || t.date >= from) && (!to || t.date <= to))
       .filter((t) => dow < 0 || (new Date(`${t.date}T00:00:00`).getDay() + 6) % 7 === dow)
       .filter((t) => result === 'all' || (result === 'on' ? t.onTime : !t.onTime))
       .filter((t) => !s || `${t.id} ${branchName(t.branchId)} ${teamName(t.teamId)} ${t.type}`.toLowerCase().includes(s))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trips, q, result, from, to, branches, teams])
+  }, [trips, q, result, from, to, branches, teams, scope])
 
   return (
     <>

@@ -70,6 +70,12 @@ export interface Api {
     list(): Promise<User[]>
     create(data: UserInput): Promise<User>
     update(id: string, data: UserInput): Promise<User>
+    /**
+     * Super Admin reactivates a locked user. Returns the one-time password the
+     * user must change on first sign-in — show it to the admin so they can read
+     * it to the user if the email didn't arrive.
+     */
+    reactivate(id: string): Promise<{ user: User; tempPassword: string; sentTo: string }>
   }
   teams: {
     list(): Promise<Team[]>

@@ -5,6 +5,8 @@ import RequestTimeline from '@/components/RequestTimeline'
 import { Avatar, Badge, Button, Card, Drawer, ErrorBlock, KeyValue, LoadingBlock, Modal, StatusBadge, Textarea } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { fmtDate, fmtDateTime, fmtMoney } from '@/lib/format'
+import { branchScope } from '@/lib/scope'
+import { teamBranchId } from '@/lib/teams'
 import { api, ApiError } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi, useInvalidate } from '@/store/data'
@@ -54,9 +56,12 @@ export default function RequestDetail() {
   const creator = users.find((u) => u.id === r.createdBy)
   const mine = r.createdBy === user?.id
   const team = teams.find((t) => t.id === r.teamId)
-  const canAct = r.status === 'Pending' && !mine && isChecker
+  // Branch Checkers only review their own branch's requests; Super Admin and HQ review all.
+  const scope = branchScope(user, branches)
+  const otherBranch = !!scope && scope !== r.branchId
+  const canAct = r.status === 'Pending' && !mine && isChecker && !otherBranch
   // A Checker can still call off an approved request until the team is on the road.
-  const canCancel = isChecker && (r.status === 'Approved' || r.status === 'Assigned')
+  const canCancel = isChecker && !otherBranch && (r.status === 'Approved' || r.status === 'Assigned')
 
   // After a reject or cancel there's nothing left to do here — go back to the queue
   // (a cancel lands on the Cancelled tab so the Checker sees the result).
@@ -129,6 +134,11 @@ export default function RequestDetail() {
                 Maker-Checker rule: you created this request, so you cannot approve or reject it.
               </p>
             )}
+            {r.status === 'Pending' && !mine && isChecker && otherBranch && (
+              <p className="mt-3 rounded-[16px] bg-amber-16 px-3.5 py-3 text-[12px] font-semibold text-amber">
+                This request is from {branch?.name ?? r.branchId}. Only Checkers from that branch (or HQ) can approve or reject it.
+              </p>
+            )}
             {r.status === 'Pending' && !mine && !isChecker && (
               <p className="mt-3 rounded-[16px] bg-amber-16 px-3.5 py-3 text-[12px] font-semibold text-amber">
                 Only users with the Checker role can approve or reject.
@@ -155,7 +165,7 @@ export default function RequestDetail() {
                 Another Checker must review your request
               </p>
             )}
-            {!isReadOnly && r.status === 'Approved' && (
+            {!isReadOnly && !otherBranch && r.status === 'Approved' && (
               <Button
                 className="mt-4 w-full"
                 onClick={() => setAssignOpen(true)}
@@ -170,7 +180,7 @@ export default function RequestDetail() {
             )}
             {/* Reassign is a Checker-only move, and only while the driver
                 hasn't accepted the push yet. */}
-            {isChecker && r.status === 'Assigned' && r.canReassign && (
+            {isChecker && !otherBranch && r.status === 'Assigned' && r.canReassign && (
               <Button
                 variant="ghost"
                 className="mt-3 w-full"
@@ -238,7 +248,14 @@ export default function RequestDetail() {
         }}
       />
       {/* Only Checkers assign/reassign — a Maker who deep-links /assign gets nothing. */}
-      <AssignDrawer open={isChecker && assignOpen} request={r} teams={teams} users={users} onClose={() => setAssignOpen(false)} />
+      <AssignDrawer
+        open={isChecker && assignOpen}
+        request={r}
+        branchName={branch?.name ?? r.branchId}
+        teams={teams}
+        users={users}
+        onClose={() => setAssignOpen(false)}
+      />
     </>
   )
 }
@@ -328,12 +345,14 @@ function ReasonModal({
 function AssignDrawer({
   open,
   request,
+  branchName,
   teams,
   users,
   onClose,
 }: {
   open: boolean
   request: CashRequest
+  branchName: string
   teams: Team[]
   users: User[]
   onClose: () => void
@@ -349,8 +368,9 @@ function AssignDrawer({
   // the currently-assigned team is also a valid pick (reassign no-ops to the same team
   // are blocked server-side, so we just don't highlight it as selectable).
   const canTake = (t: Team) => t.confirmed && (t.status === 'Available' || t.id === currentTeamId)
+  // Only teams from the request's branch can take it.
   const sorted = [...teams]
-    .filter((t) => t.id !== currentTeamId)
+    .filter((t) => t.id !== currentTeamId && teamBranchId(t.memberIds, users) === request.branchId)
     .sort((a, b) => Number(!canTake(a)) - Number(!canTake(b)))
   const firstFree = sorted.find(canTake)?.id ?? null
   const chosen = teamId ?? firstFree
@@ -403,7 +423,12 @@ function AssignDrawer({
         </p>
       ) : (
         <p className="rounded-[16px] border border-lime/60 bg-lime-28 px-3.5 py-3 text-[12px] font-semibold text-ink">
-          ✓ {request.id} approved. Select an available team — a push notification is sent immediately.
+          ✓ {request.id} approved. Select an available {branchName} team — a push notification is sent immediately.
+        </p>
+      )}
+      {sorted.length === 0 && (
+        <p className="mt-4 rounded-[16px] bg-amber-16 px-3.5 py-3 text-[12px] font-semibold text-amber">
+          {branchName} has no other delivery team. Create one under Users & Teams → Delivery Teams.
         </p>
       )}
       <ul role="radiogroup" aria-label="Delivery team" className="mt-4 flex flex-col gap-3">

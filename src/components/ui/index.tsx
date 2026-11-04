@@ -381,13 +381,14 @@ type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   error?: string
   options: { value: string; label: string; disabled?: boolean }[]
   placeholder?: string
+  hint?: ReactNode
 }
 
-export function Select({ label, error, options, placeholder, className, id, required, ...rest }: SelectProps) {
+export function Select({ label, error, hint, options, placeholder, className, id, required, ...rest }: SelectProps) {
   const autoId = useId()
   const fid = id ?? autoId
   return (
-    <Field label={label} error={error} htmlFor={fid} className={className} required={required}>
+    <Field label={label} error={error} hint={hint} htmlFor={fid} className={className} required={required}>
       <div className="relative">
         <select id={fid} aria-invalid={!!error} className={cn(control, 'appearance-none pr-10', error && invalid, !rest.value && 'text-ink-38')} {...rest}>
           {placeholder !== undefined && <option value="">{placeholder}</option>}
