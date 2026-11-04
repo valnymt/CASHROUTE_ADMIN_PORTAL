@@ -137,7 +137,6 @@ export default function Users() {
 function UserForm({
   user,
   branchOptions,
-  nextId,
   onClose,
 }: {
   user: User | null
@@ -151,7 +150,7 @@ function UserForm({
   const [form, setForm] = useState<UserInput>(
     user ?? { name: '', role: '' as Role, mobile: '', email: '', status: 'Active', branchId: null, teamId: null },
   )
-  const employeeId = user?.id ?? nextId
+  const [employeeId, setEmployeeId] = useState(user?.id ?? '')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -191,6 +190,13 @@ function UserForm({
 
     const validationErrors: Record<string, string> = {}
 
+    //Employee ID start with U- followed by a number not existed in the db
+    if (!employeeId.trim()) {
+      validationErrors.id = 'Please enter an Employee ID.'
+    } else if (!/^U-\d+$/.test(employeeId.trim())) {
+      validationErrors.id = 'Employee ID must start with U- followed by numbers (e.g. U-003).'
+    }
+
     if (needsPassword) {
       if (!password) {
         validationErrors.password = 'Please enter a default password.'
@@ -221,7 +227,7 @@ function UserForm({
 
     setBusy(true)
     try {
-      const payload = { ...form, ...(needsPassword ? { password } : {}) }
+      const payload = { ...form, employee_id: employeeId.trim(), ...(needsPassword ? { password } : {}) }
       if (user) await api.users.update(user.id, payload)
       else await api.users.create(payload)
       invalidate()
@@ -292,7 +298,21 @@ function UserForm({
       <form onSubmit={submit} className="grid gap-4" noValidate>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input label="Full name" placeholder="e.g. Amy Tan" value={form.name} onChange={(e) => set('name', e.target.value)} error={errors.name} required />
-          <Input label="Employee ID" placeholder="e.g. U-1234" value={employeeId} disabled hint={user ? undefined : 'Assigned automatically — this is the ID the new user will get'} />
+          {/* <Input label="Employee ID" placeholder="e.g. U-1234" value={employeeId} disabled hint={user ? undefined : 'Assigned automatically — this is the ID the new user will get'} />
+           */}
+          <Input label="Employee ID" placeholder="e.g. U-003" value={employeeId}
+            onChange={(e) => {
+              setEmployeeId(e.target.value.toUpperCase())
+              setErrors((prev) => {
+                const next = { ...prev }
+                delete next.employee_id
+                return next
+              })
+            }}
+            error={errors.employee_id}
+            hint="Format: U- followed by numbers, e.g. U-003"
+            required
+          />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input label="Mobile number" type="tel" placeholder="+95 …" value={form.mobile} onChange={(e) => set('mobile', e.target.value)} error={errors.mobile} />
