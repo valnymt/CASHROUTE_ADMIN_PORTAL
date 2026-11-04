@@ -137,7 +137,7 @@ function buildHistory(trip: Trip, branches: Branch[], teams: Team[], users: User
       { label: trip.type === 'Deposit' ? 'Departed HQ' : 'Departed HQ (loaded)', by: driver, time: departed },
       { label: `Arrived at ${there}`, by: driver, time: arrived },
       { label: 'Handover OTP verified', by: trip.type === 'Deposit' ? (branch?.contactName ?? '—') : 'Ops Desk', time: otp },
-      { label: `Delivered to ${back}`, by: driver, time: delivered },
+      { label: `Completed delivery to ${back}`, by: driver, time: delivered },
     ],
   }
 }

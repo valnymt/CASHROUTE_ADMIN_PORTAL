@@ -10,7 +10,7 @@ import { useApi } from '@/store/data'
 import type { AuditEvent, AuditLog, User } from '@/types'
 
 type Filter = 'all' | AuditEvent | 'App trip' | 'Login' | 'Logout'
-const APP_TRIP: AuditEvent[] = ['In Transit', 'Delivered']
+const APP_TRIP: AuditEvent[] = ['In Transit', 'Completed']
 
 /** AP-09 · Audit Trail & System Logs (read-only). */
 export default function AuditTrail() {

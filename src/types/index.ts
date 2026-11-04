@@ -62,7 +62,7 @@ export type RequestStatus =
   | 'Rejected'
   | 'Assigned'
   | 'In Transit'
-  | 'Delivered'
+  | 'Completed'
   | 'Cancelled'
 
 export interface TimelineEntry {
@@ -103,7 +103,7 @@ export type AuditEvent =
   | 'Edit'
   | 'Cancel'
   | 'In Transit'
-  | 'Delivered'
+  | 'Completed'
 
 export interface AuditLog {
   id: string

@@ -44,7 +44,7 @@ export default function Requests() {
           status === 'all' ||
           (status === 'pending' && r.status === 'Pending') ||
           (status === 'approved' && IN_PROGRESS.includes(r.status)) ||
-          (status === 'completed' && r.status === 'Delivered') ||
+          (status === 'completed' && r.status === 'Completed') ||
           (status === 'rejected' && r.status === 'Rejected') ||
           (status === 'cancelled' && r.status === 'Cancelled'),
       )

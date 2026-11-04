@@ -236,7 +236,7 @@ function Ticker({
 }) {
   const lastAt = (r: CashRequest) => r.timeline[r.timeline.length - 1]?.at ?? r.createdAt
   const items = requests
-    .filter((r) => ['In Transit', 'Assigned', 'Delivered', 'Pending'].includes(r.status))
+    .filter((r) => ['In Transit', 'Assigned', 'Completed', 'Pending'].includes(r.status))
     .filter((r) => r.status !== 'Pending' || r === requests.find((x) => x.status === 'Pending'))
     .filter((r) => {
       const stale = staleDemo && r.teamId === STALE_TEAM && r.status === 'In Transit'
@@ -284,7 +284,7 @@ function Ticker({
                 {body}
               </button>
             ) : (
-              <Link to={r.status === 'Delivered' ? `/reports/${r.id}` : `/approvals/${r.id}`} className={cls}>
+              <Link to={r.status === 'Completed' ? `/reports/${r.id}` : `/approvals/${r.id}`} className={cls}>
                 {body}
               </Link>
             )}
@@ -295,7 +295,7 @@ function Ticker({
   )
 }
 
-const order = (r: CashRequest) => ({ 'In Transit': 0, Assigned: 1, Delivered: 1, Pending: 2 } as Record<string, number>)[r.status] ?? 3
+const order = (r: CashRequest) => ({ 'In Transit': 0, Assigned: 1, Completed: 1, Pending: 2 } as Record<string, number>)[r.status] ?? 3
 const agoText = (iso: string) => {
   const a = fmtAge(iso)
   return a === 'just now' ? a : `${a} ago`
