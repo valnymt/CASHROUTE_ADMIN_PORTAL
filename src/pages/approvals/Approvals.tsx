@@ -36,8 +36,20 @@ export default function Approvals() {
   const creator = (id: string) => (id === user?.id ? `${user.name} (you)` : (users?.find((u) => u.id === id)?.name ?? id))
 
   // Branch Checkers only see requests from their own branch; Super Admin and HQ see every branch.
+  // const scope = branches ? branchScope(user, branches) : null
+  // const visible = useMemo(() => (requests ?? []).filter((r) => !scope || r.branchId === scope), [requests, scope])
+  // Branch Checkers only see requests from their own branch.
+  // Super Admin and HQ users can see every branch.
+  const isBranchScoped = user?.role === 'Checker' || user?.role === 'Maker'
   const scope = branches ? branchScope(user, branches) : null
-  const visible = useMemo(() => (requests ?? []).filter((r) => !scope || r.branchId === scope), [requests, scope])
+
+  const visible = useMemo(
+    () =>
+      (requests ?? []).filter((r) =>
+        isBranchScoped ? Boolean(scope) && r.branchId === scope : true,
+      ),
+    [requests, scope, isBranchScoped],
+  )
 
   const counts = useMemo(() => {
     const r = visible
@@ -93,7 +105,7 @@ export default function Approvals() {
 
       {error ? (
         <ErrorBlock error={error} onRetry={reload} />
-      ) : !requests ? (
+      ) : !requests || (isBranchScoped && !branches) ? (
         <LoadingBlock />
       ) : (
         <DataTable
