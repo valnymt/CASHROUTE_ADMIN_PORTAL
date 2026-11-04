@@ -31,6 +31,13 @@ export default function Requests() {
     const s = q.trim().toLowerCase()
     return [...(requests ?? [])]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      // Maker can only see requests from their assigned branch
+      .filter((r) => {
+        if (user?.role === 'Maker') {
+          return r.branchId === user.branchId
+        }
+        return true
+      })
       .filter((r) => scope === 'all' || r.createdBy === user?.id)
       .filter(
         (r) =>

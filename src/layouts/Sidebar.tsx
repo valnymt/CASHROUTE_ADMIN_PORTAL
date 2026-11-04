@@ -48,10 +48,10 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
   const approvals: NavItem = { to: '/approvals', label: 'Approvals', Icon: IconCheckCircle, count: toReview, countTone: 'violet' }
   const branchesItem: NavItem = { to: '/branches', label: 'Branches', Icon: IconBuilding }
   const usersTeams: NavItem = {
-    to: isChecker ? '/teams' : '/users',
+    to: '/users',
     label: 'Users & Teams',
     Icon: IconUsers,
-    match: isChecker ? ['/teams'] : ['/users', '/teams'],
+    match: ['/users', '/teams'],
   }
   const audit: NavItem = { to: '/audit', label: 'Audit Trail', Icon: IconDoc }
   const reports: NavItem = { to: '/reports', label: 'Reports', Icon: IconChart, end: true }

@@ -4,8 +4,8 @@ import { useAuth } from '@/store/auth'
 
 /** "Users | Delivery Teams" segmented switch shared by both AP-03 screens. */
 export default function UsersTabs() {
-  const { user } = useAuth()
-  const isChecker = user?.role === 'Checker'
+  //const { user } = useAuth()
+  // const isChecker = user?.role === 'Checker'
 
   const tab = (to: string, label: string) => (
     <NavLink
@@ -22,7 +22,7 @@ export default function UsersTabs() {
   )
   return (
     <div className="glass flex w-max gap-1 rounded-[24px] p-1">
-      {!isChecker && tab('/users', 'Users')}
+      {tab('/users', 'Users')}
       {tab('/teams', 'Delivery Teams')}
     </div>
   )

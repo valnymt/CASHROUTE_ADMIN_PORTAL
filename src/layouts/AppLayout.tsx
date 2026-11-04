@@ -63,13 +63,13 @@ export default function AppLayout() {
     )
   if (!user) return <Navigate to="/login" replace state={{ from: pathname }} />
 
-  //the checker cannot acces to users
-  if (
-    user.role === 'Checker' &&
-    (pathname === '/users' || pathname.startsWith('/users/'))
-  ) {
-    return <Navigate to="/teams" replace />
-  }
+  // //the checker cannot acces to users
+  // if (
+  //   user.role === 'Checker' &&
+  //   (pathname === '/users' || pathname.startsWith('/users/'))
+  // ) {
+  //   return <Navigate to="/teams" replace />
+  // }
 
 
 

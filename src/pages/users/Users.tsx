@@ -18,7 +18,7 @@ const ROLES: Role[] = ['Maker', 'Checker', 'Driver', 'Custodian']
 export default function Users() {
   //adding readonly for Maker
   const { user } = useAuth()
-  const isReadOnly = user?.role === 'Maker'
+  const isReadOnly = user?.role === 'Maker' || user?.role === 'Checker'
 
   const { data: users, error, reload } = useApi(() => api.users.list())
   const { data: branches } = useApi(() => api.branches.list())
@@ -247,7 +247,7 @@ function UserForm({
         subtitle={`${form.name} can sign in with the one-time password below. They'll be forced to change it immediately.`}
         footer={
           <>
-            <Button variant="ghost" onClick={async () => { await navigator.clipboard.writeText(reactivated.tempPassword).catch(() => {}); toast('Copied to clipboard.') }}>
+            <Button variant="ghost" onClick={async () => { await navigator.clipboard.writeText(reactivated.tempPassword).catch(() => { }); toast('Copied to clipboard.') }}>
               Copy password
             </Button>
             <Button onClick={() => { setReactivated(null); onClose() }}>Done</Button>
