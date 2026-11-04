@@ -144,7 +144,7 @@ export function statusTone(status: string): BadgeTone {
     case 'Active':
     case 'Available':
     case 'In Transit':
-    case 'Delivered':
+    case 'Completed':
     case 'Complete':
     case 'On time':
     case 'Approve':
