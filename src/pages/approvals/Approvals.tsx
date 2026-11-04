@@ -12,7 +12,7 @@ import type { CashRequest } from '@/types'
 
 type Tab = 'pending' | 'approved' | 'rejected' | 'cancelled'
 const TABS: Tab[] = ['pending', 'approved', 'rejected', 'cancelled']
-const APPROVED: CashRequest['status'][] = ['Approved', 'Assigned', 'In Transit', 'completed']
+const APPROVED: CashRequest['status'][] = ['Approved', 'Assigned', 'In Transit', 'Completed']
 
 /** Only Checker cancels belong here — a Maker withdrawing their own Pending request stays in All Requests. */
 const checkerCancelled = (r: CashRequest) =>

@@ -176,11 +176,11 @@ export function createSeed(now = new Date()): Db {
       ['Created', 'Priya Nair', minsAgo(updatedMinsAgo + 70)],
       ['Approved', 'Admin User', minsAgo(updatedMinsAgo + 58)],
       [`${teams.find((t) => t.id === teamId)!.name} assigned`, 'Admin User', minsAgo(updatedMinsAgo + 55)],
-      ...(status === 'In Transit' || status === 'Delivered'
+      ...(status === 'In Transit' || status === 'Completed'
         ? ([['Departed HQ', 'Raj Kumar', minsAgo(updatedMinsAgo + 10)]] as [string, string, string][])
         : []),
-      ...(status === 'Delivered'
-        ? ([['Delivered to HQ', 'Raj Kumar', minsAgo(updatedMinsAgo)]] as [string, string, string][])
+      ...(status === 'Completed'
+        ? ([['Completed delivery to HQ', 'Raj Kumar', minsAgo(updatedMinsAgo)]] as [string, string, string][])
         : []),
     ),
   })
@@ -195,12 +195,12 @@ export function createSeed(now = new Date()): Db {
     active('REQ-1043', 'Deposit', 'BR-002', 180000, 'In Transit', 'T-B', 0),
     active('REQ-1045', 'Deposit', 'BR-003', 140000, 'In Transit', 'T-C', 3),
     active('REQ-1039', 'Withdrawal', 'BR-003', 200000, 'Assigned', 'T-C', 5),
-    active('REQ-1038', 'Withdrawal', 'BR-001', 120000, 'Delivered', 'T-A', 12),
+    active('REQ-1038', 'Withdrawal', 'BR-001', 120000, 'Completed', 'T-A', 12),
     active('REQ-1047', 'Withdrawal', 'BR-003', 60000, 'Assigned', 'T-C', 14),
   ]
 
   const audit: AuditLog[] = [
-    { id: 'A-0008', at: at(0, 9, 41, 22, 104), event: 'Delivered', requestId: 'REQ-1038', userId: 'U-004', source: 'Mobile app', gps: '1.3151° N, 103.7652° E (±6 m)' },
+    { id: 'A-0008', at: at(0, 9, 41, 22, 104), event: 'Completed', requestId: 'REQ-1038', userId: 'U-004', source: 'Mobile app', gps: '1.3151° N, 103.7652° E (±6 m)' },
     { id: 'A-0007', at: at(0, 9, 36, 5, 218), event: 'In Transit', requestId: 'REQ-1042', userId: 'U-004', source: 'Mobile app', gps: '1.3048° N, 103.8318° E (±8 m)' },
     { id: 'A-0006', at: at(0, 9, 30, 48, 551), event: 'Assign', requestId: 'REQ-1043', userId: 'U-003', source: 'Web portal', gps: null },
     { id: 'A-0005', at: at(0, 9, 28, 10, 37), event: 'Approve', requestId: 'REQ-1043', userId: 'U-003', source: 'Web portal', gps: null },

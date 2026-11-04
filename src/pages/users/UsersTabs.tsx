@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
-import { useAuth } from '@/store/auth'
 
 /** "Users | Delivery Teams" segmented switch shared by both AP-03 screens. */
 export default function UsersTabs() {

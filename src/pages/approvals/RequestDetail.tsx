@@ -198,7 +198,7 @@ export default function RequestDetail() {
                 Cancel Assign
               </Button>
             )}
-            {r.status === 'Delivered' && (
+            {r.status === 'Completed' && (
               <Button variant="ghost" className="mt-4 w-full" to={`/reports/${r.id}`}>
                 View trip history
               </Button>
