@@ -19,6 +19,7 @@ export interface User {
   /** Branch name or team id (for delivery staff). */
   branchId: string | null
   teamId: string | null
+  createdAt: string
   /** Portal sign-in password (Super Admin / Maker / Checker). UI demo only — the real backend stores it hashed. */
   password?: string
 }
