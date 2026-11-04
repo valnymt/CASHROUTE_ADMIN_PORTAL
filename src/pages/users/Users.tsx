@@ -48,11 +48,12 @@ export default function Users() {
 
   // Branch Makers / Checkers only see users from their own branch.
   // Delivery members (drivers/custodians) belonging to that same branch are shown too.
+  const isBranchScoped = user?.role === 'Maker' || user?.role === 'Checker'
   const scope = branches ? branchScope(user, branches) : null
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
     return (users ?? []).filter((u) => {
-      if (scope && u.branchId !== scope) return false
+      if (isBranchScoped && (!scope || u.branchId !== scope)) return false
       const okRole =
         role === 'all' ||
         // (role === 'admin' && u.role === 'Super Admin') ||
@@ -95,7 +96,7 @@ export default function Users() {
 
       {error ? (
         <ErrorBlock error={error} onRetry={reload} />
-      ) : !users ? (
+      ) : !users || (isBranchScoped && !branches) ? (
         <LoadingBlock />
       ) : (
         <DataTable
