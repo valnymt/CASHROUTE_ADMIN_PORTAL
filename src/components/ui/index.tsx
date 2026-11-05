@@ -151,6 +151,7 @@ export function statusTone(status: string): BadgeTone {
       return 'lime'
     case 'Pending':
     case 'Assigned':
+    case 'Reassigned':
     case 'Assign':
       return 'violet'
     case 'Approved':

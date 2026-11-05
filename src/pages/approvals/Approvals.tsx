@@ -24,7 +24,7 @@ const TABS: Tab[] = [
 const isReassign = (r: CashRequest) =>
   r.status === 'Assigned' &&
   r.canReassign === true &&
-  r.timeline.some((t) => t.label.startsWith('Reassigned to '))
+  r.timeline.some((t) => t.label.startsWith('Reassigned from '))
 
 const isAssign = (r: CashRequest) =>
   r.status === 'Assigned' &&
@@ -38,9 +38,9 @@ const isApprovalRequest = (r: CashRequest) =>
   r.status === 'In Transit'
 
 /** Only Checker cancels belong here — a Maker withdrawing their own Pending request stays in All Requests. */
-const checkerCancelled = (r: CashRequest) =>
-  r.status === 'Cancelled' &&
-  (r.cancelledBy ? r.cancelledBy === 'Checker' : r.timeline.some((t) => t.label.startsWith('Cancelled by Checker')))
+// const checkerCancelled = (r: CashRequest) =>
+//   r.status === 'Cancelled' &&
+//   (r.cancelledBy ? r.cancelledBy === 'Checker' : r.timeline.some((t) => t.label.startsWith('Cancelled by Checker')))
 
 /** AP-06 · Pending Approvals. */
 export default function Approvals() {
@@ -156,7 +156,7 @@ export default function Approvals() {
             { header: 'Requested for', cell: (r) => `${fmtDay(r.date)} · ${r.slot}` },
             { header: 'Created by', cell: (r) => creator(r.createdBy) },
             { header: 'Age', cell: (r) => fmtAge(r.createdAt), hideOnMobile: true },
-            { header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
+            { header: 'Status', cell: (r) => <StatusBadge status={isReassign(r) ? 'Reassigned' : r.status} /> },
           ]}
           // action={(r) => (
           //   <RowLink onClick={() => navigate(`/approvals/${r.id}`)}>
