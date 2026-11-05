@@ -20,7 +20,7 @@ export default function History() {
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
   // Branch Makers / Checkers see only their own branch's trips.
-  const scope = branches ? branchScope(user, branches) : null
+  const scope = branches ? branchScope(user, branches) : undefined
   // Reports can deep-link into this page with ?q=&from=&to=&result=&dow= preset.
   // dow is 0 (Mon) … 4 (Fri); -1 means "any day".
   const [params] = useSearchParams()
@@ -36,7 +36,7 @@ export default function History() {
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
     return (trips ?? [])
-      .filter((t) => !scope || t.branchId === scope)
+      .filter((t) => scope === null || t.branchId === scope)
       .filter((t) => (!from || t.date >= from) && (!to || t.date <= to))
       .filter((t) => dow < 0 || (new Date(`${t.date}T00:00:00`).getDay() + 6) % 7 === dow)
       .filter((t) => result === 'all' || (result === 'on' ? t.onTime : !t.onTime))
@@ -70,7 +70,7 @@ export default function History() {
 
       {error ? (
         <ErrorBlock error={error} onRetry={reload} />
-      ) : !trips ? (
+      ) : !trips || !branches ? (
         <LoadingBlock />
       ) : (
         <DataTable

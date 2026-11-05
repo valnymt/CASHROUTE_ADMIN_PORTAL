@@ -9,9 +9,7 @@ import { useApi } from '@/store/data'
 import type { CashRequest } from '@/types'
 
 type Scope = 'all' | 'mine'
-type StatusFilter = 'all' | 'pending' | 'approved' | 'completed' | 'rejected' | 'cancelled'
-
-const IN_PROGRESS: CashRequest['status'][] = ['Approved', 'Assigned', 'In Transit']
+type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'
 
 /** All cash requests — the Maker's "View all requests" list. */
 export default function Requests() {
@@ -39,12 +37,14 @@ export default function Requests() {
         return true
       })
       .filter((r) => scope === 'all' || r.createdBy === user?.id)
+      .filter((r) =>
+        ['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(r.status)
+      )
       .filter(
         (r) =>
           status === 'all' ||
           (status === 'pending' && r.status === 'Pending') ||
-          (status === 'approved' && IN_PROGRESS.includes(r.status)) ||
-          (status === 'completed' && r.status === 'Completed') ||
+          (status === 'approved' && r.status === 'Approved') ||
           (status === 'rejected' && r.status === 'Rejected') ||
           (status === 'cancelled' && r.status === 'Cancelled'),
       )
@@ -80,8 +80,7 @@ export default function Requests() {
             options={[
               { value: 'all', label: 'Any status' },
               { value: 'pending', label: 'Pending' },
-              { value: 'approved', label: 'In progress' },
-              { value: 'completed', label: 'Completed' },
+              { value: 'approved', label: 'Approved' },
               { value: 'rejected', label: 'Rejected' },
               { value: 'cancelled', label: 'Cancelled' },
             ]}

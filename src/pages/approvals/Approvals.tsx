@@ -10,9 +10,32 @@ import { useAuth } from '@/store/auth'
 import { useApi } from '@/store/data'
 import type { CashRequest } from '@/types'
 
-type Tab = 'pending' | 'approved' | 'rejected' | 'cancelled'
-const TABS: Tab[] = ['pending', 'approved', 'rejected', 'cancelled']
-const APPROVED: CashRequest['status'][] = ['Approved', 'Assigned', 'In Transit', 'Completed']
+type Tab = 'all' | 'pending' | 'approved' | 'assign' | 'reassign' | 'in_transit'
+
+const TABS: Tab[] = [
+  'all',
+  'pending',
+  'approved',
+  'assign',
+  'reassign',
+  'in_transit',
+]
+
+const isReassign = (r: CashRequest) =>
+  r.status === 'Assigned' &&
+  r.canReassign === true &&
+  r.timeline.some((t) => t.label.startsWith('Reassigned to '))
+
+const isAssign = (r: CashRequest) =>
+  r.status === 'Assigned' &&
+  !isReassign(r)
+
+const isApprovalRequest = (r: CashRequest) =>
+  r.status === 'Pending' ||
+  r.status === 'Approved' ||
+  isAssign(r) ||
+  isReassign(r) ||
+  r.status === 'In Transit'
 
 /** Only Checker cancels belong here — a Maker withdrawing their own Pending request stays in All Requests. */
 const checkerCancelled = (r: CashRequest) =>
@@ -54,26 +77,35 @@ export default function Approvals() {
   const counts = useMemo(() => {
     const r = visible
     return {
+      all: r.filter(isApprovalRequest).length,
       pending: r.filter((x) => x.status === 'Pending').length,
-      approved: r.filter((x) => APPROVED.includes(x.status)).length,
-      rejected: r.filter((x) => x.status === 'Rejected').length,
-      cancelled: r.filter(checkerCancelled).length,
+      approved: r.filter((x) => x.status === 'Approved').length,
+      assign: r.filter(isAssign).length,
+      reassign: r.filter(isReassign).length,
+      in_transit: r.filter((x) => x.status === 'In Transit').length,
     }
   }, [visible])
 
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
+
     return visible
       .filter((r) =>
-        tab === 'pending'
-          ? r.status === 'Pending'
-          : tab === 'approved'
-            ? APPROVED.includes(r.status)
-            : tab === 'rejected'
-              ? r.status === 'Rejected'
-              : checkerCancelled(r),
+        tab === 'all'
+          ? isApprovalRequest(r)
+          : tab === 'pending'
+            ? r.status === 'Pending'
+            : tab === 'approved'
+              ? r.status === 'Approved'
+              : tab === 'assign'
+                ? isAssign(r)
+                : tab === 'reassign'
+                  ? isReassign(r)
+                  : r.status === 'In Transit',
       )
-      .filter((r) => !s || `${r.id} ${branchShort(r.branchId)} ${r.type}`.toLowerCase().includes(s))
+      .filter((r) =>
+        !s || `${r.id} ${branchShort(r.branchId)} ${r.type}`.toLowerCase().includes(s),
+      )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, tab, q, branches])
 
@@ -93,12 +125,14 @@ export default function Approvals() {
           label="Status"
           value={tab}
           onChange={setTab}
-          defaultValue="pending"
+          defaultValue="all"
           options={[
+            { value: 'all', label: `All · ${counts.all}` },
             { value: 'pending', label: `Pending · ${counts.pending}` },
             { value: 'approved', label: `Approved · ${counts.approved}` },
-            { value: 'rejected', label: `Rejected · ${counts.rejected}` },
-            { value: 'cancelled', label: `Cancelled · ${counts.cancelled}` },
+            { value: 'assign', label: `Assign · ${counts.assign}` },
+            { value: 'reassign', label: `Reassign · ${counts.reassign}` },
+            { value: 'in_transit', label: `In Transit · ${counts.in_transit}` },
           ]}
         />
       </div>
