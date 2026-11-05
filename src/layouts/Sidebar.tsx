@@ -157,7 +157,6 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
               <p className="truncate text-[13px] font-bold text-ink">{user.name}</p>
               <p className="truncate text-[11px] text-ink-60">{user.role}</p>
             </div>
-            <span className="pr-1 text-[11px] font-bold text-violet">View</span>
           </button>
         )}
         <button

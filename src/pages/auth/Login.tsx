@@ -9,6 +9,19 @@ import { useAuth } from '@/store/auth'
 
 /** AP-01 · Login / Account Locked. Session Timeout lives in IdleTimeout.tsx. */
 export default function Login() {
+  const getDefaultRoute = (role: string) => {
+    switch (role) {
+      case 'Super Admin':
+      case 'Admin':
+        return '/live'
+      case 'Checker':
+        return '/approvals'
+      case 'Maker':
+        return '/requests'
+      default:
+        return '/live'
+    }
+  }
   const { user, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -23,7 +36,9 @@ export default function Login() {
   const [locked, setLocked] = useState(false)
 
   document.title = 'Sign in · CashRoute HQ Admin'
-  if (user && !busy) return <Navigate to={state?.from ?? '/live'} replace />
+  if (user && !busy) {
+    return <Navigate to={getDefaultRoute(user.role)} replace />
+  }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -31,8 +46,8 @@ export default function Login() {
     setError(null)
     setFieldErrors({})
     try {
-      await login(username, password)
-      navigate(state?.from ?? '/live', { replace: true })
+      const loggedInUser = await login(username, password)
+      navigate(getDefaultRoute(loggedInUser.role), { replace: true, })
     } catch (err) {
       const ae = err as ApiError
       if (ae.code === 'locked') setLocked(true)
