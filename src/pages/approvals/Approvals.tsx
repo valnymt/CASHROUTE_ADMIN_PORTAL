@@ -51,7 +51,7 @@ export default function Approvals() {
   const { data: branches } = useApi(() => api.branches.list())
   const { data: users } = useApi(() => api.users.list())
   const [params, setParams] = useSearchParams()
-  const tab: Tab = TABS.find((t) => t === params.get('tab')) ?? 'pending'
+  const tab: Tab = TABS.find((t) => t === params.get('tab')) ?? 'all'
   const setTab = (t: Tab) => setParams(t === 'pending' ? {} : { tab: t }, { replace: true })
   const [q, setQ] = useState('')
 

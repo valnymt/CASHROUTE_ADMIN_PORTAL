@@ -228,6 +228,7 @@ export default function Teams() {
           teams={teams}
           branches={branches}
           initialBranch={editing === 'new' ? null : teamBranch(editing)}
+          suggestedBranch={scope}
           onClose={() => setEditing(null)}
         />
       )}
@@ -307,6 +308,7 @@ function TeamForm({
   teams,
   branches,
   initialBranch,
+  suggestedBranch,
   onClose,
 }: {
   team: Team | null
@@ -314,13 +316,14 @@ function TeamForm({
   teams: Team[]
   branches: Branch[]
   initialBranch: string | null
+  suggestedBranch: string | null
   onClose: () => void
 }) {
   const invalidate = useInvalidate()
   const toast = useToast()
   const [name, setName] = useState(team?.name ?? `Team ${String.fromCharCode(65 + teams.length)}`)
   const [members, setMembers] = useState<string[]>(team?.memberIds ?? [])
-  const [branchId, setBranchId] = useState(initialBranch ?? '')
+  const [branchId, setBranchId] = useState(initialBranch ?? suggestedBranch ?? '')
   const [error, setError] = useState<string>()
   const [ruleError, setRuleError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -331,7 +334,8 @@ function TeamForm({
     return u.branchId === branchId && (!t || t.id === team?.id)
   })
   const branchOptions = branches
-    .filter((b) => b.active && delivery.some((u) => u.branchId === b.id))
+    .filter((b) => b.active && delivery.some((u) => u.branchId === b.id) &&
+      (!suggestedBranch || b.id === suggestedBranch))
     .map((b) => ({ value: b.id, label: `${b.name} (${b.code})` }))
   const pickBranch = (id: string) => {
     setBranchId(id)
@@ -392,7 +396,7 @@ function TeamForm({
         <Input label="Team name" value={name} onChange={(e) => setName(e.target.value)} error={error} />
         <Select
           label="Branch"
-          placeholder="Select branch"
+          placeholder={suggestedBranch ? 'Your branch' : 'Select branch'}
           value={branchId}
           onChange={(e) => pickBranch(e.target.value)}
           options={branchOptions}
