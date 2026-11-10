@@ -31,10 +31,6 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
   const { data: requests } = useApi(() => api.requests.list(), [], { pollMs: 30_000 })
   const { data: branches } = useApi(() => api.branches.list())
 
-  const onRoad = requests?.filter((r) => r.status === 'In Transit' || r.status === 'Assigned').length
-  const scope = branches ? branchScope(user, branches) : null
-  const toReview = requests?.filter((r) => r.status === 'Pending' && r.createdBy !== user?.id && (!scope || r.branchId === scope)).length
-
   // Sidebar is scoped per role:
   //  - Super Admin → sees everything
   //  - Checker     → Live Monitoring, Approvals, Users & Teams, Trip History (own branch)
@@ -42,6 +38,10 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
   const isSuperAdmin = user?.role === 'Super Admin'
   const isChecker = user?.role === 'Checker'
   const isMaker = user?.role === 'Maker'
+
+  const onRoad = requests?.filter((r) => r.status === 'In Transit' || r.status === 'Assigned').length
+  const scope = branches ? branchScope(user, branches) : null
+  const toReview = requests?.filter((r) => r.status === (isSuperAdmin ? 'Approved' : 'Pending') && (r.createdBy !== user?.id) && (!scope || r.branchId === scope)).length
 
   const live: NavItem = { to: '/live', label: 'Live Monitoring', Icon: IconPin, count: onRoad, countTone: 'lime' }
   const newRequest: NavItem = { to: '/requests/new', label: 'New Cash Request', Icon: IconPlus }
@@ -68,7 +68,7 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
     sections = [
       { heading: 'OPERATIONS', items: [live, approvals] },
       { heading: 'MANAGEMENT', items: [usersTeams] },
-      { heading: 'INSIGHTS', items: [history] },
+      { heading: 'INSIGHTS', items: [history, reports] },
     ]
   } else {
     // Super Admin — full menu

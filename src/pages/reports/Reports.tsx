@@ -8,6 +8,8 @@ import { exportCsv, exportExcel } from '@/lib/export'
 import { fmtMoney, fmtMoneyShort, isoDay } from '@/lib/format'
 import { api } from '@/services/api'
 import { useApi } from '@/store/data'
+import { branchScope } from '@/lib/scope'
+import { useAuth } from '@/store/auth'
 
 interface Filters {
   from: string
@@ -111,9 +113,11 @@ function defaultFilters(): Filters {
 /** AP-10 · Reports & Analytics (the trip log itself lives on Trip History). */
 export default function Reports() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { data: trips, error, reload } = useApi(() => api.trips.list())
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
+  const scope = branches ? branchScope(user, branches) : null
   const weekOptions = useMemo(() => recentWeeks(10), [])
   const [draft, setDraft] = useState<Filters>(defaultFilters)
   const [applied, setApplied] = useState<Filters>(draft)
@@ -130,7 +134,7 @@ export default function Reports() {
           (t) =>
             t.date >= applied.from &&
             t.date <= applied.to &&
-            (!applied.branch || t.branchId === applied.branch) &&
+            (scope !== null ? t.branchId === scope : (!applied.branch || t.branchId === applied.branch)) &&
             (!applied.type || t.type === applied.type) &&
             (!applied.team || t.teamId === applied.team) &&
             (!applied.status || (applied.status === 'on' ? t.onTime : !t.onTime)),
@@ -278,7 +282,16 @@ export default function Reports() {
               </p>
             )}
           </div>
-          <SelectMenu label="Branch" value={draft.branch} onChange={(v) => setF('branch', v)} placeholder="All branches" options={branches.filter((b) => b.type === 'Branch').map((b) => ({ value: b.id, label: b.name }))} />
+          <SelectMenu
+            label="Branch"
+            value={scope !== null ? scope : draft.branch}
+            onChange={(v) => setF('branch', v)}
+            placeholder="All branches"
+            options={branches
+              .filter((b) => b.type === 'Branch' && (scope === null || b.id === scope))
+              .map((b) => ({ value: b.id, label: b.name }))}
+            disabled={scope !== null}
+          />
           <SelectMenu label="Type" value={draft.type} onChange={(v) => setF('type', v)} placeholder="All types" options={[{ value: 'Deposit', label: 'Deposit' }, { value: 'Withdrawal', label: 'Withdrawal' }]} />
           <SelectMenu label="Status" value={draft.status} onChange={(v) => setF('status', v)} placeholder="All" options={[{ value: 'on', label: 'On time' }, { value: 'late', label: 'Late' }]} />
           <SelectMenu label="Team" value={draft.team} onChange={(v) => setF('team', v)} placeholder="All teams" options={teams.map((t) => ({ value: t.id, label: t.name }))} />
@@ -350,63 +363,63 @@ export default function Reports() {
           {stats.n === 0 ? (
             <p className="text-[12px] text-ink-60">No trips in this range.</p>
           ) : (
-          <>
-          <ul className="flex flex-col gap-3">
-            {stats.perDay.map((d, i) => {
-              const total = d.on + d.late
-              const rate = total ? Math.round((d.on / total) * 100) : 0
-              return (
-                <li key={i} className="grid grid-cols-[48px_1fr_auto] items-center gap-3">
-                  <span className="text-[11px] text-ink-60">{WEEKDAYS[i]}</span>
-                  <button
-                    type="button"
-                    disabled={total === 0}
-                    onClick={() => navigate(`/history?from=${applied.from}&to=${applied.to}&dow=${i}`)}
-                    aria-label={`${WEEKDAYS[i]} — see ${total} trips in Trip History`}
-                    className="group relative block h-5 cursor-pointer disabled:cursor-default"
-                  >
-                    <span className="flex h-2.5 gap-1 transition group-hover:brightness-110" style={{ marginTop: 5 }}>
-                      {total === 0 ? (
-                        <span className="w-full rounded-full bg-ink-6" />
-                      ) : (
-                        <>
-                          <span className="rounded-full bg-lime" style={{ flex: d.on || 0.0001 }} />
-                          {d.late > 0 && <span className="rounded-full bg-violet" style={{ flex: Math.max(d.late, total * 0.06) }} />}
-                        </>
-                      )}
-                    </span>
-                    <ChartTip>
-                      <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
-                      {total === 0 ? (
-                        <p className="mt-1 text-[11px] text-ink-60">No trips</p>
-                      ) : (
-                        <>
-                          <p className="mt-0.5 text-[13px] font-bold text-plum">{rate}% on time</p>
-                          <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
-                            <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-lime" />On time</span>
-                            <span className="text-right font-bold text-ink">{d.on}</span>
-                            <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-violet" />Late</span>
-                            <span className="text-right font-bold text-ink">{d.late}</span>
-                            <span className="text-ink-60">Amount</span>
-                            <span className="text-right font-bold text-plum">{fmtMoney(d.amount, currency)}</span>
-                          </div>
-                          <p className="mt-1.5 text-[10px] font-bold text-violet">Click to open in Trip History ›</p>
-                        </>
-                      )}
-                    </ChartTip>
-                  </button>
-                  <span className="text-right text-[11px] font-bold tabular-nums text-ink">
-                    {total === 0 ? <span className="text-ink-38">—</span> : `${d.on}/${total}`}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-          <div className="mt-4 flex gap-4 text-[11px] text-ink-60">
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-lime" /> On time</span>
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-violet" /> Late</span>
-          </div>
-          </>
+            <>
+              <ul className="flex flex-col gap-3">
+                {stats.perDay.map((d, i) => {
+                  const total = d.on + d.late
+                  const rate = total ? Math.round((d.on / total) * 100) : 0
+                  return (
+                    <li key={i} className="grid grid-cols-[48px_1fr_auto] items-center gap-3">
+                      <span className="text-[11px] text-ink-60">{WEEKDAYS[i]}</span>
+                      <button
+                        type="button"
+                        disabled={total === 0}
+                        onClick={() => navigate(`/history?from=${applied.from}&to=${applied.to}&dow=${i}`)}
+                        aria-label={`${WEEKDAYS[i]} — see ${total} trips in Trip History`}
+                        className="group relative block h-5 cursor-pointer disabled:cursor-default"
+                      >
+                        <span className="flex h-2.5 gap-1 transition group-hover:brightness-110" style={{ marginTop: 5 }}>
+                          {total === 0 ? (
+                            <span className="w-full rounded-full bg-ink-6" />
+                          ) : (
+                            <>
+                              <span className="rounded-full bg-lime" style={{ flex: d.on || 0.0001 }} />
+                              {d.late > 0 && <span className="rounded-full bg-violet" style={{ flex: Math.max(d.late, total * 0.06) }} />}
+                            </>
+                          )}
+                        </span>
+                        <ChartTip>
+                          <p className="text-[11px] font-bold text-ink">{WEEKDAYS[i]}</p>
+                          {total === 0 ? (
+                            <p className="mt-1 text-[11px] text-ink-60">No trips</p>
+                          ) : (
+                            <>
+                              <p className="mt-0.5 text-[13px] font-bold text-plum">{rate}% on time</p>
+                              <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+                                <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-lime" />On time</span>
+                                <span className="text-right font-bold text-ink">{d.on}</span>
+                                <span className="flex items-center gap-1.5 text-ink-60"><span className="size-1.5 rounded-full bg-violet" />Late</span>
+                                <span className="text-right font-bold text-ink">{d.late}</span>
+                                <span className="text-ink-60">Amount</span>
+                                <span className="text-right font-bold text-plum">{fmtMoney(d.amount, currency)}</span>
+                              </div>
+                              <p className="mt-1.5 text-[10px] font-bold text-violet">Click to open in Trip History ›</p>
+                            </>
+                          )}
+                        </ChartTip>
+                      </button>
+                      <span className="text-right text-[11px] font-bold tabular-nums text-ink">
+                        {total === 0 ? <span className="text-ink-38">—</span> : `${d.on}/${total}`}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+              <div className="mt-4 flex gap-4 text-[11px] text-ink-60">
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-lime" /> On time</span>
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-violet" /> Late</span>
+              </div>
+            </>
           )}
         </Card>
       </div>

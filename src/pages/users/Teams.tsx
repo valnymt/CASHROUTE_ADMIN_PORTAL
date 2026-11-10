@@ -14,7 +14,7 @@ import UsersTabs from './UsersTabs'
 export default function Teams() {
   //added readonly for Maker 
   const { user } = useAuth()
-  const isReadOnly = user?.role === 'Maker'
+  const isReadOnly = user?.role === 'Maker' || user?.role === 'Checker'
 
   const { data: teams, error, reload } = useApi(() => api.teams.list())
   const { data: users } = useApi(() => api.users.list())
@@ -221,7 +221,7 @@ export default function Teams() {
         </Card>
       </div>
 
-      {editing && (
+      {editing && !isReadOnly && (
         <TeamForm
           team={editing === 'new' ? null : editing}
           delivery={delivery}
