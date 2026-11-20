@@ -419,6 +419,7 @@ export function SelectMenu({
   error,
   required,
   className,
+  disabled = false,
 }: {
   label?: ReactNode
   value: string
@@ -428,13 +429,19 @@ export function SelectMenu({
   error?: string
   required?: boolean
   className?: string
+  disabled?: boolean
 }) {
   const fid = useId()
   const [open, setOpen] = useState(false)
+  const menuOpen = open && !disabled
   const ref = useRef<HTMLDivElement>(null)
   const current = options.find((o) => o.value === value)
 
   useEffect(() => {
+    if (disabled) {
+      setOpen(false)
+      return
+    }
     if (!open) return
     const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
@@ -444,7 +451,7 @@ export function SelectMenu({
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, disabled])
 
   return (
     <Field label={label} error={error} htmlFor={fid} className={className} required={required}>
@@ -453,21 +460,22 @@ export function SelectMenu({
           id={fid}
           type="button"
           aria-haspopup="listbox"
-          aria-expanded={open}
+          aria-expanded={menuOpen}
+          disabled={disabled}
           aria-invalid={!!error}
           onClick={() => setOpen((o) => !o)}
           className={cn(
             control,
-            'flex items-center justify-between gap-2 text-left',
-            open && 'border-violet/40 bg-white ring-4 ring-violet/10',
+            'flex items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60',
+            menuOpen && 'border-violet/40 bg-white ring-4 ring-violet/10',
             !current && 'text-ink-38',
             error && invalid,
           )}
         >
           <span className="truncate">{current?.label ?? placeholder}</span>
-          <IconChevronDown className={cn('size-4 shrink-0 text-ink-60 transition-transform', open && 'rotate-180')} />
+          <IconChevronDown className={cn('size-4 shrink-0 text-ink-60 transition-transform', menuOpen && 'rotate-180')} />
         </button>
-        {open && (
+        {menuOpen && (
           <ul
             role="listbox"
             aria-label={typeof label === 'string' ? label : placeholder}

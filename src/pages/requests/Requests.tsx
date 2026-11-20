@@ -6,7 +6,6 @@ import { fmtDay, fmtMoney } from '@/lib/format'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
 import { useApi } from '@/store/data'
-import type { CashRequest } from '@/types'
 
 type Scope = 'all' | 'mine'
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'
