@@ -179,7 +179,7 @@ export default function RequestDetail() {
               </Button>
             )}
             {/* Reassign is a Checker-only move, and only while the driver
-                hasn't accepted the push yet. */}
+                hasn't accepted the assignment yet. */}
             {isChecker && !otherBranch && r.status === 'Assigned' && r.canReassign && (
               <Button
                 variant="ghost"
@@ -244,7 +244,7 @@ export default function RequestDetail() {
         confirmLabel="Cancel request"
         onConfirm={async (reason) => {
           await api.requests.cancel(r.id, reason)
-          finish(`${r.id} cancelled.`, 'cancelled')
+          finish(`${r.id} cancelled.${r.teamId ? ' Update added to the team inbox.' : ''}`, 'cancelled')
         }}
       />
       {/* Only Checkers assign/reassign — a Maker who deep-links /assign gets nothing. */}
@@ -382,7 +382,7 @@ function AssignDrawer({
       await api.requests.assign(request.id, chosen)
       invalidate()
       const t = teams.find((x) => x.id === chosen)
-      toast(isReassign ? `${t?.name} reassigned — push sent to the new team.` : `${t?.name} assigned — push notification sent.`)
+      toast(isReassign ? `${t?.name ?? 'New team'} assigned. Updates added to both teams’ inboxes.` : `${t?.name ?? 'Delivery team'} assigned. Update added to their inbox.`)
       onClose()
       navigate(isReassign ? `/approvals/${request.id}` : '/approvals')
     } catch (e) {
@@ -419,11 +419,11 @@ function AssignDrawer({
     >
       {isReassign ? (
         <p className="rounded-[16px] border border-amber-16 bg-amber-16 px-3.5 py-3 text-[12px] font-semibold text-ink">
-          ⚠ {request.id} is currently with <b>{currentTeamName ?? 'the previous team'}</b>. Picking a new team cancels the old push and sends a fresh one.
+          ⚠ {request.id} is currently with <b>{currentTeamName ?? 'the previous team'}</b>. Picking a new team updates both teams’ notification inboxes.
         </p>
       ) : (
         <p className="rounded-[16px] border border-lime/60 bg-lime-28 px-3.5 py-3 text-[12px] font-semibold text-ink">
-          ✓ {request.id} approved. Select an available {branchName} team — a push notification is sent immediately.
+          ✓ {request.id} approved. Select an available {branchName} team to add the delivery to its notification inbox.
         </p>
       )}
       {sorted.length === 0 && (

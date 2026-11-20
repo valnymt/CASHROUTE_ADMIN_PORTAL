@@ -42,7 +42,7 @@ export default function Teams() {
     try {
       await api.teams.update(team.id, { name: team.name, memberIds: [...team.memberIds, userId] })
       invalidate()
-      toast(`${byId(userId)?.name} added to ${team.name}.`)
+      toast(`${byId(userId)?.name} added to ${team.name}. Update added to their inbox.`)
     } catch (e) {
       toast((e as ApiError).message, 'error')
     }
@@ -52,7 +52,7 @@ export default function Teams() {
     try {
       await api.teams.update(team.id, { name: team.name, memberIds: team.memberIds.filter((m) => m !== userId) })
       invalidate()
-      toast(`${byId(userId)?.name} moved to unassigned.`, 'info')
+      toast(`${byId(userId)?.name} moved to unassigned. Update added to their inbox.`, 'info')
     } catch (e) {
       toast((e as ApiError).message, 'error')
     }
