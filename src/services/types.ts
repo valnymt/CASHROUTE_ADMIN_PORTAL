@@ -33,6 +33,25 @@ export interface RequestInput {
   remarks: string
 }
 
+export interface LiveTripLocation {
+  name: string | null
+  code: string | null
+  address: string | null
+  latitude: number | string | null
+  longitude: number | string | null
+  handoverRadius: number | null
+}
+
+export interface LiveTrip {
+  id: string
+  status: string
+  currentLatitude: number | null
+  currentLongitude: number | null
+  lastPingAt: string | null
+  pickup: LiveTripLocation | null
+  dropoff: LiveTripLocation | null
+}
+
 /** Error with a machine-readable code (mirrors Laravel's JSON error responses). */
 export class ApiError extends Error {
   constructor(
@@ -95,7 +114,10 @@ export interface Api {
     assign(id: string, teamId: string): Promise<CashRequest>
   }
   audit: { list(): Promise<AuditLog[]> }
-  trips: { list(): Promise<Trip[]> }
+  trips: {
+    list(): Promise<Trip[]>
+    live(): Promise<LiveTrip[]>
+  }
   notifications: {
     list(): Promise<Notification[]>
     markAllRead(): Promise<void>

@@ -446,7 +446,10 @@ export const mockApi: Api = {
   },
 
   audit: { list: () => respond(() => db.audit) },
-  trips: { list: () => respond(() => db.trips) },
+  trips: {
+    list: () => respond(() => db.trips),
+    live: () => respond(() => []),
+  },
 
   notifications: {
     list: () => respond(() => db.notifications),

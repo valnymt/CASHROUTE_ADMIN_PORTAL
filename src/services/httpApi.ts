@@ -1,6 +1,5 @@
 import type { User } from '@/types'
-import { ApiError, type Api } from './types'
-
+import { ApiError, type Api, type LiveTrip } from './types'
 /**
  * Real implementation against the separate Laravel backend
  * (../Cashroute_backend). Enable with VITE_USE_MOCK_API=false and set
@@ -108,7 +107,10 @@ export const httpApi: Api = {
     assign: (id, teamId) => post(`/requests/${id}/assign`, { team_id: teamId }),
   },
   audit: { list: () => get('/audit-logs') },
-  trips: { list: () => get('/trips') },
+  trips: {
+    list: () => get('/trips'),
+    live: () => get<LiveTrip[]>('/trips/live'),
+  },
   notifications: {
     list: () => get('/notifications'),
     markAllRead: () => post('/notifications/read-all'),
