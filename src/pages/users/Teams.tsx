@@ -130,10 +130,6 @@ export default function Teams() {
                       Drop members here
                     </li>
                   )}
-                  {/* {t.memberIds.map((id) => {
-                    const u = byId(id)
-                    return u ? <MemberRow key={id} user={u} onRemove={locked ? undefined : () => removeFrom(id, t)} /> : null
-                  })} */}
                   {t.memberIds.map((id) => {
                     const u = byId(id)
                     return u ? (
@@ -141,6 +137,7 @@ export default function Teams() {
                         key={id}
                         user={u}
                         branch={branchName(u.branchId)}
+                        isLeader={t.leaderId === id}
                         onRemove={locked || isReadOnly ? undefined : () => removeFrom(id, t)}
                       />
                     ) : null
@@ -148,7 +145,7 @@ export default function Teams() {
                 </ul>
                 {locked ? (
                   <p className="mt-3 rounded-[16px] bg-periwinkle-18 px-3 py-2.5 text-center text-[11px] font-semibold text-plum">
-                    On a delivery — editing unlocks when the trip ends
+                    On a delivery · Member changes unlock when the trip ends
                   </p>
                 ) : !isReadOnly ? (
                   <>
@@ -272,7 +269,12 @@ export default function Teams() {
 }
 
 /** `onRemove` omitted = locked (team on a trip): not draggable, no remove button. */
-function MemberRow({ user, branch, onRemove }: { user: User; branch: string; onRemove?: () => void }) {
+function MemberRow({ user, branch, onRemove, isLeader }: {
+  user: User
+  branch: string
+  onRemove?: () => void
+  isLeader: boolean
+}) {
   return (
     <li
       draggable={!!onRemove}
@@ -288,6 +290,8 @@ function MemberRow({ user, branch, onRemove }: { user: User; branch: string; onR
           </span>
         </span>
       </span>
+      <span className="flex shrink-0 items-center gap-1">
+        {isLeader && <span className="rounded-full bg-periwinkle-18 px-2.5 py-1 text-[11px] font-bold text-plum">Team lead</span>}
       {onRemove && (
         <button
           type="button"
@@ -298,6 +302,7 @@ function MemberRow({ user, branch, onRemove }: { user: User; branch: string; onR
           ✕
         </button>
       )}
+      </span>
     </li>
   )
 }
@@ -323,6 +328,11 @@ function TeamForm({
   const toast = useToast()
   const [name, setName] = useState(team?.name ?? `Team ${String.fromCharCode(65 + teams.length)}`)
   const [members, setMembers] = useState<string[]>(team?.memberIds ?? [])
+  const [leaderId, setLeaderId] = useState(
+    delivery.some((person) => person.id === team?.leaderId && person.role === 'Custodian' && person.status === 'Active')
+      ? team?.leaderId ?? ''
+      : '',
+  )
   const [branchId, setBranchId] = useState(initialBranch ?? suggestedBranch ?? '')
   const [error, setError] = useState<string>()
   const [ruleError, setRuleError] = useState<string>()
@@ -340,10 +350,12 @@ function TeamForm({
   const pickBranch = (id: string) => {
     setBranchId(id)
     setMembers([])
+    setLeaderId('')
     setRuleError(undefined)
   }
   const mix = teamMix(members, delivery)
   const toggle = (id: string) => {
+    if (id === leaderId && members.includes(id)) setLeaderId('')
     setRuleError(undefined)
     setMembers((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]))
   }
@@ -351,21 +363,23 @@ function TeamForm({
   const save = async (confirmed: boolean) => {
     const rule = !branchId
       ? 'Select a branch.'
-      : (teamBranchError(members, delivery) ?? (confirmed ? teamRuleError(members, delivery) : null))
+      : !leaderId
+        ? 'Select a custodian as team lead.'
+        : (teamBranchError(members, delivery) ?? (confirmed ? teamRuleError(members, delivery) : null))
     if (rule) {
       setRuleError(rule)
       return
     }
     setBusy(true)
     try {
-      if (team) await api.teams.update(team.id, { name, memberIds: members, confirmed })
-      else await api.teams.create({ name, memberIds: members, confirmed })
+      if (team) await api.teams.update(team.id, { name, memberIds: members, confirmed, leaderId })
+      else await api.teams.create({ name, memberIds: members, confirmed, leaderId })
       invalidate()
       toast(confirmed ? `${name} confirmed.` : `${name} saved as a draft. Confirm it once it has 1 driver and 2 custodians.`)
       onClose()
     } catch (e) {
       const ae = e as ApiError
-      if (ae.fields?.members) setRuleError(ae.message)
+      if (ae.fields?.members || ae.fields?.leaderId) setRuleError(ae.message)
       else setError(ae.fields?.name ?? ae.message)
     } finally {
       setBusy(false)
@@ -377,7 +391,7 @@ function TeamForm({
       open
       onClose={onClose}
       title={team ? `Edit ${team.name}` : 'Create Team'}
-      subtitle={`Pick a branch, then its members. Save as a draft anytime. To confirm, pick at least ${TEAM_MIN.Driver} driver and ${TEAM_MIN.Custodian} custodians. People already in another team aren't listed.`}
+      subtitle={`Select a branch and its members, then choose one custodian as team lead. To confirm, select at least ${TEAM_MIN.Driver} driver and ${TEAM_MIN.Custodian} custodians. People already in another team aren't listed.`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -433,6 +447,18 @@ function TeamForm({
                     <span className="block text-[10px] text-ink-60">{u.role}</span>
                   </span>
                 </label>
+                {on && u.role === 'Custodian' && u.status === 'Active' && (
+                  <button type="button" role="switch" aria-checked={leaderId === u.id}
+                    aria-label={`Team lead for ${u.name}`}
+                    disabled={busy}
+                    onClick={() => { setLeaderId(leaderId === u.id ? '' : u.id); setRuleError(undefined) }}
+                    className="mt-1 flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-[12px] font-semibold text-plum hover:bg-ink-6 focus-visible:outline-2 focus-visible:outline-violet">
+                    Team lead
+                    <span aria-hidden="true" className={cn('flex h-5 w-9 items-center rounded-full border px-0.5 transition', leaderId === u.id ? 'justify-end border-violet bg-violet' : 'border-ink-38')}>
+                      <span className={cn('size-3.5 rounded-full', leaderId === u.id ? 'bg-white' : 'bg-ink-60')} />
+                    </span>
+                  </button>
+                )}
               </li>
             )
           })}

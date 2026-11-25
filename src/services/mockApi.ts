@@ -152,6 +152,13 @@ function validateUser(data: UserInput, id?: string) {
 }
 
 /** Members always share one branch; confirming also requires at least 1 driver + 2 custodians. */
+function checkTeamLeader(memberIds: string[], leaderId?: string) {
+  if (!leaderId || !memberIds.includes(leaderId) ||
+      !db.users.some(user => user.id === leaderId && user.role === 'Custodian' && user.status === 'Active')) {
+    throw new ApiError('Select an active custodian on this team as its leader.', 'validation', 422)
+  }
+}
+
 function checkTeamRule(memberIds: string[], confirmed?: boolean) {
   const err = teamBranchError(memberIds, db.users) ?? (confirmed ? teamRuleError(memberIds, db.users) : null)
   if (err) throw new ApiError(err, 'validation', 422, { members: err })
@@ -287,26 +294,42 @@ export const mockApi: Api = {
 
   teams: {
     list: () => respond(() => db.teams),
-    create: ({ name, memberIds, confirmed }) =>
+    setLeader: (id, leaderId) =>
+      respond(() => {
+        const team = db.teams.find((item) => item.id === id)
+        if (!team) throw new ApiError('Team not found.', 'not_found', 404)
+        if (team.status === 'On trip') throw new ApiError('This team is on a delivery.', 'conflict', 409)
+        checkTeamLeader(team.memberIds, leaderId)
+        if (!team.memberIds.includes(leaderId)) {
+          throw new ApiError('Choose a member of this team.', 'validation', 422)
+        }
+        team.leaderId = leaderId
+        return team
+      }),
+    create: ({ name, memberIds, confirmed, leaderId }) =>
       respond(() => {
         if (!name.trim()) throw new ApiError('Team name is required.', 'validation', 422, { name: 'Team name is required.' })
         if (db.teams.some((t) => t.name.toLowerCase() === name.trim().toLowerCase()))
           throw new ApiError('A team with this name exists.', 'validation', 422, { name: 'A team with this name exists.' })
         checkTeamRule(memberIds, confirmed)
-        const t = { id: `T-${db.seq.team++}`, name: name.trim(), status: 'Available' as const, currentRequestId: null, memberIds: [] as string[], confirmed: false }
+        checkTeamLeader(memberIds, leaderId)
+        const t = { leaderId, id: `T-${db.seq.team++}`, name: name.trim(), status: 'Available' as const, currentRequestId: null, memberIds: [] as string[], confirmed: false }
         db.teams.push(t)
         setMembers(t.id, memberIds)
         t.confirmed = !!confirmed
         return t
       }),
-    update: (id, { name, memberIds, confirmed }) =>
+    update: (id, { name, memberIds, confirmed, leaderId }) =>
       respond(() => {
         const t = db.teams.find((x) => x.id === id)
         if (!t) throw new ApiError('Team not found.', 'not_found', 404)
         if (t.status === 'On trip') throw new ApiError(`${t.name} is on a delivery and can't be edited until the trip ends.`, 'conflict', 409)
         if (!name.trim()) throw new ApiError('Team name is required.', 'validation', 422, { name: 'Team name is required.' })
         checkTeamRule(memberIds, confirmed)
+        const nextLeader = leaderId ?? t.leaderId ?? undefined
+        if (leaderId || confirmed) checkTeamLeader(memberIds, nextLeader)
         t.name = name.trim()
+        t.leaderId = nextLeader
         setMembers(id, memberIds)
         t.confirmed = !!confirmed
         return t
@@ -470,6 +493,7 @@ function setMembers(teamId: string, memberIds: string[]) {
     // Losing a member to another team turns a confirmed team back into a draft.
     if (kept.length !== t.memberIds.length) t.confirmed = false
     t.memberIds = kept
+    if (t.leaderId && !kept.includes(t.leaderId)) t.leaderId = null
   }
   const team = db.teams.find((t) => t.id === teamId)!
   for (const u of db.users) {
@@ -477,6 +501,7 @@ function setMembers(teamId: string, memberIds: string[]) {
     else if (u.teamId === teamId) u.teamId = null
   }
   team.memberIds = [...memberIds]
+  if (team.leaderId && !memberIds.includes(team.leaderId)) team.leaderId = null
 }
 
 /**

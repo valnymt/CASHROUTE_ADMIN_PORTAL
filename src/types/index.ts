@@ -50,6 +50,7 @@ export interface Team {
   /** Request currently being delivered when status is "On trip". */
   currentRequestId: string | null
   memberIds: string[]
+  leaderId?: string | null
   /** Confirmed = checked to have at least 1 driver + 2 custodians; only confirmed teams can be assigned. Any member change makes it a draft again. */
   confirmed: boolean
 }

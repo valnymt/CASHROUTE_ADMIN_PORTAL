@@ -22,7 +22,7 @@ export interface DirectoryBranch {
 }
 export type UserInput = Omit<User, 'id' | 'username' | 'createdAt'> & { username?: string }
 /** `confirmed: true` = Confirm team (needs at least 1 driver + 2 custodians). Leave it out to save as a draft. */
-export type TeamInput = { name: string; memberIds: string[]; confirmed?: boolean }
+export type TeamInput = { name: string; memberIds: string[]; confirmed?: boolean; leaderId?: string }
 export interface RequestInput {
   type: Direction
   branchId: string
@@ -100,6 +100,7 @@ export interface Api {
     list(): Promise<Team[]>
     create(data: TeamInput): Promise<Team>
     update(id: string, data: TeamInput): Promise<Team>
+    setLeader(id: string, leaderId: string): Promise<Team>
   }
   requests: {
     list(): Promise<CashRequest[]>

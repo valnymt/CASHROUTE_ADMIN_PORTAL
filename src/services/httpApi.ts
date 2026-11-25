@@ -96,6 +96,7 @@ export const httpApi: Api = {
     list: () => get('/teams'),
     create: (d) => post('/teams', d),
     update: (id, d) => put(`/teams/${id}`, d),
+    setLeader: (id, leaderId) => put(`/teams/${encodeURIComponent(id)}/leader`, { leaderId }),
   },
   requests: {
     list: () => get('/requests'),
