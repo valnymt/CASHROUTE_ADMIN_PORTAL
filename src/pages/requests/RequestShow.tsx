@@ -6,17 +6,17 @@ import { Button, Card, ErrorBlock, KeyValue, LoadingBlock, Modal, StatusBadge, T
 import { fmtDate, fmtDateTime, fmtMoney } from '@/lib/format'
 import { api, ApiError } from '@/services/api'
 import { useAuth } from '@/store/auth'
-import { useApi, useInvalidate } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
 
 /** One cash request's summary — where a Maker lands after submitting. */
 export default function RequestShow() {
   const { id = '' } = useParams()
   const { user, isChecker } = useAuth()
-  const { data: r, error, reload } = useApi(() => api.requests.get(id), [id])
+  const { data: r, error, reload } = useApi(() => api.requests.get(id), [id], LIVE_STATUS_OPTIONS)
   const { data: branches } = useApi(() => api.branches.list())
   const { data: users } = useApi(() => api.users.list())
-  const { data: teams } = useApi(() => api.teams.list())
+  const { data: teams } = useApi(() => api.teams.list(), [], LIVE_STATUS_OPTIONS)
   const [cancelOpen, setCancelOpen] = useState(false)
 
   if (error)

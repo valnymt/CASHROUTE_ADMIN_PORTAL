@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn'
 import { branchScope } from '@/lib/scope'
 import { TEAM_MIN, teamBranchError, teamBranchId, teamMix, teamRuleError } from '@/lib/teams'
 import { api, ApiError } from '@/services/api'
-import { useApi, useInvalidate } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
 import { useAuth } from '@/store/auth'
 import type { Branch, Team, User } from '@/types'
@@ -16,7 +16,7 @@ export default function Teams() {
   const { user } = useAuth()
   const isReadOnly = user?.role === 'Maker' || user?.role === 'Checker'
 
-  const { data: teams, error, reload } = useApi(() => api.teams.list(), [], { pollMs: 10_000 })
+  const { data: teams, error, reload } = useApi(() => api.teams.list(), [], LIVE_STATUS_OPTIONS)
   const { data: users } = useApi(() => api.users.list())
   const { data: branches } = useApi(() => api.branches.list())
   const invalidate = useInvalidate()

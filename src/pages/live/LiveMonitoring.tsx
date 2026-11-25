@@ -4,16 +4,16 @@ import { Badge, Card, ErrorBlock, FilterDropdown, LoadingBlock, statusTone } fro
 import { cn } from '@/lib/cn'
 import { fmtAge } from '@/lib/format'
 import { api } from '@/services/api'
-import { useApi } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi } from '@/store/data'
 import type { CashRequest, Team } from '@/types'
 import LiveMap from '../../components/LiveMap'
 
 type Filter = 'all' | 'transit' | 'stale'
 
 export default function LiveMonitoring() {
-  const { data: requests, error, reload } = useApi(() => api.requests.list(), [], { pollMs: 10_000 })
+  const { data: requests, error, reload } = useApi(() => api.requests.list(), [], LIVE_STATUS_OPTIONS)
   const { data: branches } = useApi(() => api.branches.list())
-  const { data: teams } = useApi(() => api.teams.list())
+  const { data: teams } = useApi(() => api.teams.list(), [], LIVE_STATUS_OPTIONS)
   const { data: liveTrips, error: liveTripsError, reload: reloadLiveTrips } =
     useApi(() => api.trips.live(), [], { pollMs: 3_000 })
 
@@ -22,10 +22,13 @@ export default function LiveMonitoring() {
   const [selected, setSelected] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   const selectedTrip = liveTrips?.find(trip => trip.id === selected) ?? null
-  const { data: tracked, error: trackError, reload: reloadTrack } = useApi(async () => {
-    const reference = selectedTrip?.id
-    return { reference, points: reference ? await api.trips.track(reference) : [] }
-  }, [selectedTrip?.id], { pollMs: selectedTrip ? 3_000 : undefined })
+  const routePosition = selectedTrip?.currentLatitude != null && selectedTrip.currentLongitude != null
+    ? [selectedTrip.currentLongitude, selectedTrip.currentLatitude].join(',') : ''
+  const routeReference = selectedTrip?.status.toLowerCase() === 'in transit' ? selectedTrip.id : undefined
+  const { data: route, loading: routeLoading, error: routeError, reload: reloadRoute } = useApi(async () => {
+    const result = routeReference && routePosition ? await api.trips.route(routeReference, routePosition) : null
+    return { reference: routeReference, position: routePosition, points: result?.geometry.coordinates ?? [] }
+  }, [routeReference, routePosition])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 10_000)
@@ -65,12 +68,13 @@ export default function LiveMonitoring() {
         </div>
         <div className="h-[600px] w-full overflow-hidden rounded-[22px] border border-white/95">
           <LiveMap trips={mappedTrips} selectedTrip={selectedTrip}
-            traveledPath={tracked?.reference === selectedTrip?.id ? tracked?.points ?? [] : []} />
+            routeCoordinates={route?.reference === routeReference && route?.position === routePosition ? route.points : []} />
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 px-1 pt-2 text-[11px] text-ink-60">
-          <span><b className="text-violet">Purple</b> · Recorded GPS trail</span>
-          <span><b className="text-blue-700">Blue dashes</b> · Suggested road route</span>
-          {selectedTrip && trackError && <button type="button" className="underline" onClick={reloadTrack}>Retry GPS trail</button>}
+          {routeReference && !routePosition && <span>Waiting for the first GPS position.</span>}
+          {routeReference && routePosition && routeLoading && <span>Updating route…</span>}
+          {routeReference && routePosition && !routeLoading && !routeError && <span>Road route from the latest GPS position to drop-off</span>}
+          {routeReference && routeError && <button type="button" className="underline" onClick={reloadRoute}>Road route unavailable. Retry</button>}
         </div>
       </Card>
 

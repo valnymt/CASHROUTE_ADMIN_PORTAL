@@ -5,7 +5,7 @@ import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { fmtDay, fmtMoney } from '@/lib/format'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
-import { useApi } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi } from '@/store/data'
 
 type Scope = 'all' | 'mine'
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'
@@ -14,7 +14,7 @@ type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'
 export default function Requests() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { data: requests, error, reload } = useApi(() => api.requests.list())
+  const { data: requests, error, reload } = useApi(() => api.requests.list(), [], LIVE_STATUS_OPTIONS)
   const { data: branches } = useApi(() => api.branches.list())
   const { data: users } = useApi(() => api.users.list())
   const [q, setQ] = useState('')

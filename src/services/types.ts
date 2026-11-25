@@ -120,7 +120,7 @@ export interface Api {
   trips: {
     list(): Promise<Trip[]>
     live(): Promise<LiveTrip[]>
-    track(reference: string): Promise<[number, number][]>
+    route(reference: string, position: string): Promise<{ geometry: { coordinates: [number, number][] } } | null>
     detail(reference: string): Promise<Trip | null>
     proofImageUrl(reference: string, image: number | 'signature'): string
   }

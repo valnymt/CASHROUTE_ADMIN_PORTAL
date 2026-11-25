@@ -24,6 +24,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(`${BASE}${path}`, {
     method,
     credentials: 'include',
+    cache: method === 'GET' ? 'no-store' : undefined,
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
@@ -112,7 +113,7 @@ export const httpApi: Api = {
   trips: {
     list: () => get('/trips'),
     live: () => get<LiveTrip[]>('/trips/live'),
-    track: (reference) => get<[number, number][]>(`/trips/${encodeURIComponent(reference)}/track`),
+    route: (reference, position) => get<{ geometry: { coordinates: [number, number][] } } | null>(`/trips/${encodeURIComponent(reference)}/route?position=${encodeURIComponent(position)}`),
     detail: (reference) => get<Trip>(`/trips/${encodeURIComponent(reference)}`)
       .catch((error: ApiError) => error.status === 404 ? null : Promise.reject(error)),
     proofImageUrl: (reference, image) => `${BASE}/trips/${encodeURIComponent(reference)}/proof-of-delivery/${image}`,

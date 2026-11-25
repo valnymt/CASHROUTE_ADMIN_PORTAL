@@ -36,10 +36,10 @@ function stopPopup(label: string, location: LiveTripLocation) {
 type LiveMapProps = {
     trips?: LiveTrip[]
     selectedTrip?: LiveTrip | null
-    traveledPath: [number, number][]
+    routeCoordinates: [number, number][]
 }
 
-export default function LiveMap({ trips = [], selectedTrip = null, traveledPath }: LiveMapProps) {
+export default function LiveMap({ trips = [], selectedTrip = null, routeCoordinates }: LiveMapProps) {
     const mapContainer = useRef<HTMLDivElement | null>(null)
     const mapRef = useRef<maplibregl.Map | null>(null)
     const markersRef = useRef<maplibregl.Marker[]>([])
@@ -190,23 +190,6 @@ export default function LiveMap({ trips = [], selectedTrip = null, traveledPath 
             markersRef.current = []
         }
     }, [selectedTripId, pickupLat, pickupLng, dropoffLat, dropoffLng])
-    const originLng = selectedTrip?.currentLongitude ?? pickupLng
-    const originLat = selectedTrip?.currentLatitude ?? pickupLat
-    const routeKey = selectedTripId ? [originLng, originLat, dropoffLng, dropoffLat].join(',') : ''
-
-    // GPS samples stay independent of whichever road route the router recommends.
-    useEffect(() => {
-        const map = mapRef.current
-        if (!map) return
-        const draw = () => {
-            const source = ensureLine(map, 'traveled-gps', '#7c3aed', false)
-            source.setData(lineData(traveledPath))
-        }
-        if (map.isStyleLoaded()) draw()
-        else map.once('load', draw)
-        return () => { map.off('load', draw) }
-    }, [traveledPath])
-
     useEffect(() => {
         const map = mapRef.current
         if (!map || !selectedTripId || pickupLng == null || pickupLat == null || dropoffLng == null || dropoffLat == null) return
@@ -215,43 +198,14 @@ export default function LiveMap({ trips = [], selectedTrip = null, traveledPath 
         map.fitBounds([[points[0], points[1]], [points[2], points[3]]], { padding: 80, maxZoom: 14 })
     }, [selectedTripId, pickupLng, pickupLat, dropoffLng, dropoffLat])
 
-    // Recompute the suggested remainder when a new GPS position comes in.
     useEffect(() => {
         const map = mapRef.current
         if (!map) return
-        const controller = new AbortController()
-        let timeout: ReturnType<typeof setTimeout> | undefined
-        const draw = async () => {
-            const source = ensureLine(map, 'suggested-route', MAP_COLORS.route, true)
-            source.setData(lineData([]))
-            const endpoints = routeKey.split(',')
-            if (endpoints.length !== 4 || endpoints.some(value => !value || !Number.isFinite(Number(value)))) return
-            const [lng, lat, destinationLng, destinationLat] = endpoints
-            const url = 'https://router.project-osrm.org/route/v1/driving/' +
-                [lng, lat].join(',') + ';' + [destinationLng, destinationLat].join(',') + '?overview=full&geometries=geojson'
-            timeout = setTimeout(() => controller.abort(), 8_000)
-            try {
-                const response = await fetch(url, { signal: controller.signal })
-                if (!response.ok) return
-                const result = await response.json()
-                const coordinates = result.routes?.[0]?.geometry?.coordinates
-                if (!controller.signal.aborted && result.code === 'Ok' && Array.isArray(coordinates)) {
-                    source.setData(lineData(coordinates))
-                }
-            } catch {
-                // The recorded GPS trail is still shown when the router is unavailable.
-            } finally {
-                clearTimeout(timeout)
-            }
-        }
-        if (map.isStyleLoaded()) void draw()
+        const draw = () => ensureLine(map).setData(lineData(routeCoordinates))
+        if (map.isStyleLoaded()) draw()
         else map.once('load', draw)
-        return () => {
-            controller.abort()
-            clearTimeout(timeout)
-            map.off('load', draw)
-        }
-    }, [routeKey])
+        return () => { map.off('load', draw) }
+    }, [routeCoordinates])
 
     return (
         <div
@@ -271,7 +225,8 @@ function lineData(coordinates: [number, number][]): GeoJSON.FeatureCollection<Ge
     }
 }
 
-function ensureLine(map: maplibregl.Map, id: string, color: string, dashed: boolean) {
+function ensureLine(map: maplibregl.Map) {
+    const id = 'live-road-route'
     const source = map.getSource<maplibregl.GeoJSONSource>(id)
     if (source) return source
     map.addSource(id, { type: 'geojson', data: lineData([]) })
@@ -280,7 +235,7 @@ function ensureLine(map: maplibregl.Map, id: string, color: string, dashed: bool
         type: 'line',
         source: id,
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': color, 'line-width': dashed ? 4 : 5, ...(dashed ? { 'line-dasharray': [2, 2] } : {}) },
-    }, dashed && map.getLayer('traveled-gps') ? 'traveled-gps' : undefined)
+        paint: { 'line-color': MAP_COLORS.route, 'line-width': 5 },
+    })
     return map.getSource<maplibregl.GeoJSONSource>(id)!
 }

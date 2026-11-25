@@ -6,7 +6,7 @@ import { nextUserId } from '@/lib/ids'
 import { branchScope } from '@/lib/scope'
 import { api, ApiError, type UserInput } from '@/services/api'
 import { useAuth } from '@/store/auth'
-import { useApi, useInvalidate } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
 import type { Role, User } from '@/types'
 import UsersTabs from './UsersTabs'
@@ -22,7 +22,7 @@ export default function Users() {
 
   const { data: users, error, reload } = useApi(() => api.users.list())
   const { data: branches } = useApi(() => api.branches.list())
-  const { data: teams } = useApi(() => api.teams.list())
+  const { data: teams } = useApi(() => api.teams.list(), [], LIVE_STATUS_OPTIONS)
   const [q, setQ] = useState('')
   const [role, setRole] = useState<RoleFilter>('all')
   const navigate = useNavigate()

@@ -7,7 +7,7 @@ import { cn } from '@/lib/cn'
 import { exportCsv, exportExcel } from '@/lib/export'
 import { fmtMoney, fmtMoneyShort, isoDay } from '@/lib/format'
 import { api } from '@/services/api'
-import { useApi } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi } from '@/store/data'
 import { branchScope } from '@/lib/scope'
 import { useAuth } from '@/store/auth'
 
@@ -114,9 +114,9 @@ function defaultFilters(): Filters {
 export default function Reports() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { data: trips, error, reload } = useApi(() => api.trips.list())
+  const { data: trips, error, reload } = useApi(() => api.trips.list(), [], LIVE_STATUS_OPTIONS)
   const { data: branches } = useApi(() => api.branches.list())
-  const { data: teams } = useApi(() => api.teams.list())
+  const { data: teams } = useApi(() => api.teams.list(), [], LIVE_STATUS_OPTIONS)
   const scope = branches ? branchScope(user, branches) : null
   const weekOptions = useMemo(() => recentWeeks(10), [])
   const [draft, setDraft] = useState<Filters>(defaultFilters)

@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Badge, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput } from '@/components/ui'
+import { Badge, Button, ErrorBlock, FilterDropdown, LoadingBlock, PageHeader, SearchInput } from '@/components/ui'
 import { DataTable, RowLink } from '@/components/ui/DataTable'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { fmtDate, fmtMoney } from '@/lib/format'
 import { branchScope } from '@/lib/scope'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
-import { useApi } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi } from '@/store/data'
 import type { Trip } from '@/types'
 
 type Result = 'all' | 'on' | 'late'
@@ -16,14 +16,14 @@ type Result = 'all' | 'on' | 'late'
 export default function History() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { data: trips, error, reload } = useApi(() => api.trips.list(), [], { pollMs: 10_000 })
+  const { data: trips, error, reload } = useApi(() => api.trips.list(), [], LIVE_STATUS_OPTIONS)
   const { data: branches } = useApi(() => api.branches.list())
-  const { data: teams } = useApi(() => api.teams.list())
+  const { data: teams } = useApi(() => api.teams.list(), [], LIVE_STATUS_OPTIONS)
   // Branch Makers / Checkers see only their own branch's trips.
   const scope = branches ? branchScope(user, branches) : undefined
   // Reports can deep-link into this page with ?q=&from=&to=&result=&dow= preset.
   // dow is 0 (Mon) … 4 (Fri); -1 means "any day".
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [result, setResult] = useState<Result>((params.get('result') as Result) || 'all')
   const [from, setFrom] = useState(params.get('from') ?? '')
@@ -45,10 +45,21 @@ export default function History() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trips, q, result, from, to, branches, teams, scope])
 
+  const hasFilters = Boolean(q || from || to || result !== 'all' || dow >= 0)
+  const openTrip = (trip: Trip) => {
+    const filters = new URLSearchParams()
+    if (q) filters.set('q', q)
+    if (from) filters.set('from', from)
+    if (to) filters.set('to', to)
+    if (result !== 'all') filters.set('result', result)
+    if (dow >= 0) filters.set('dow', String(dow))
+    navigate(`/reports/${trip.id}`, { state: { historySearch: `?${filters}` } })
+  }
+
   return (
     <>
-      <PageHeader title="Trip History" subtitle={trips ? `${rows.length} of ${trips.length} trips · open one for its full timeline` : undefined} />
-      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
+      <PageHeader title="Trip History" subtitle={trips && branches ? `${rows.length} completed ${rows.length === 1 ? 'trip' : 'trips'}` : undefined} />
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-ink-9 bg-white/75 p-3">
         <SearchInput value={q} onChange={setQ} placeholder="Search request, branch, team…" className="xl:w-[300px]" />
         <FilterDropdown
           label="Result"
@@ -66,6 +77,15 @@ export default function History() {
           <span className="text-[12px] text-ink-60">to</span>
           <DatePicker placeholder="To date" value={to} onChange={setTo} min={from || undefined} rangeStart={from} rangeEnd={to} />
         </div>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={() => {
+            setQ('')
+            setFrom('')
+            setTo('')
+            setResult('all')
+            setParams({}, { replace: true })
+          }}>Clear filters</Button>
+        )}
       </div>
 
       {error ? (
@@ -76,8 +96,8 @@ export default function History() {
         <DataTable
           rows={rows}
           rowKey={(t: Trip) => t.id}
-          onRowClick={(t) => navigate(`/reports/${t.id}`)}
-          empty="No trips match these filters."
+          onRowClick={openTrip}
+          empty={hasFilters ? 'No trips match these filters.' : 'No completed trips yet.'}
           // The whole log scrolls inside this card; the header row stays visible.
           maxHeight="calc(100dvh - 300px)"
           columns={[
@@ -90,7 +110,7 @@ export default function History() {
             { header: 'Duration', cell: (t) => `${t.durationMin} min` },
             { header: 'Result', cell: (t) => <Badge tone={t.onTime ? 'lime' : 'danger'}>{t.onTime ? 'On time' : 'Late'}</Badge> },
           ]}
-          action={(t) => <RowLink onClick={() => navigate(`/reports/${t.id}`)}>Details ›</RowLink>}
+          action={(t) => <RowLink onClick={() => openTrip(t)}>View trip</RowLink>}
         />
       )}
     </>

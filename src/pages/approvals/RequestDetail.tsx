@@ -9,7 +9,7 @@ import { branchScope } from '@/lib/scope'
 import { teamBranchId } from '@/lib/teams'
 import { api, ApiError } from '@/services/api'
 import { useAuth } from '@/store/auth'
-import { useApi, useInvalidate } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi, useInvalidate } from '@/store/data'
 import { useToast } from '@/store/toast'
 import type { CashRequest, Team, User } from '@/types'
 
@@ -24,10 +24,10 @@ export default function RequestDetail() {
   const isReadOnly = user?.role === 'Super Admin'
   const invalidate = useInvalidate()
   const toast = useToast()
-  const { data: r, error, reload } = useApi(() => api.requests.get(id), [id])
+  const { data: r, error, reload } = useApi(() => api.requests.get(id), [id], LIVE_STATUS_OPTIONS)
   const { data: branches } = useApi(() => api.branches.list())
   const { data: users } = useApi(() => api.users.list())
-  const { data: teams } = useApi(() => api.teams.list())
+  const { data: teams } = useApi(() => api.teams.list(), [], LIVE_STATUS_OPTIONS)
 
   const { pathname } = useLocation()
   // AP-07 overlays are part of the URL: /approvals/{id}/reject and /approvals/{id}/assign.

@@ -105,6 +105,8 @@ export type AuditEvent =
   | 'Cancel'
   | 'In Transit'
   | 'Completed'
+  | 'Pickup arrival'
+  | 'Drop-off arrival'
 
 export interface AuditLog {
   id: string
@@ -120,19 +122,29 @@ export interface DeliveryProof {
   confirmed_amount: string
   receiver_name: string | null
   submitted_at: string
+  submitted_by?: string | null
   photo_ids: number[]
   has_signature: boolean
 }
 
 export interface Trip {
-  timeline?: { label: string; at: string }[]
+  teamRoster?: {
+    team_id: number
+    team_name: string
+    members: { employee_id: string; name: string; role: string | null; is_leader: boolean }[]
+  } | null
+  timeline?: { kind?: string; label: string; at: string; actor?: string | null }[]
+  status?: string
+  startedAt?: string | null
+  requestedDate?: string | null
+  dueAt?: string | null
   arrivedPickupAt?: string | null
   arrivedDropoffAt?: string | null
   pickupVerifiedAt?: string | null
   dropoffVerifiedAt?: string | null
   completedAt?: string | null
-  pickup?: { name: string } | null
-  dropoff?: { name: string } | null
+  pickup?: { name: string; address?: string | null } | null
+  dropoff?: { name: string; address?: string | null } | null
   proof_of_delivery?: DeliveryProof | null
   id: string // request id
   date: string // YYYY-MM-DD

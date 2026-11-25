@@ -8,7 +8,7 @@ import { cn } from '@/lib/cn'
 import { branchScope } from '@/lib/scope'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
-import { useApi } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi } from '@/store/data'
 
 interface NavItem {
   to: string
@@ -26,9 +26,7 @@ export default function Sidebar({ onNavigate, onClose }: { onNavigate?: () => vo
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [profileOpen, setProfileOpen] = useState(false)
-  // Poll every 30 s so Approvals / Live Monitoring badges update when another
-  // user (e.g. a Maker on their own device) creates or finishes a request.
-  const { data: requests } = useApi(() => api.requests.list(), [], { pollMs: 30_000 })
+  const { data: requests } = useApi(() => api.requests.list(), [], LIVE_STATUS_OPTIONS)
   const { data: branches } = useApi(() => api.branches.list())
 
   // Sidebar is scoped per role:

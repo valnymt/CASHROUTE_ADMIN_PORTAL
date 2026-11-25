@@ -17,6 +17,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return <VersionCtx.Provider value={{ version, invalidate }}>{children}</VersionCtx.Provider>
 }
 
+export const LIVE_STATUS_OPTIONS = { pollMs: 5_000 }
+
 export const useInvalidate = () => useContext(VersionCtx).invalidate
 
 export interface ApiState<T> {
@@ -39,29 +41,35 @@ export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = [], opts:
 
   useEffect(() => {
     let alive = true
-    setState((s) => ({ ...s, loading: true, error: null }))
-    fetcherRef
-      .current()
-      .then((data) => alive && setState({ data, loading: false, error: null }))
-      .catch((error: Error) => alive && setState((s) => ({ ...s, loading: false, error })))
+    let inFlight = false
+
+    const refresh = async (background: boolean) => {
+      if (inFlight || (background && document.hidden)) return
+      inFlight = true
+      if (!background) setState((s) => ({ ...s, loading: true, error: null }))
+
+      try {
+        const data = await fetcherRef.current()
+        if (alive) setState({ data, loading: false, error: null })
+      } catch (error) {
+        if (alive && !background) setState((s) => ({ ...s, loading: false, error: error as Error }))
+      } finally {
+        inFlight = false
+      }
+    }
+
+    void refresh(false)
+    const onVisible = () => { void refresh(true) }
+    const timer = opts.pollMs ? window.setInterval(onVisible, opts.pollMs) : undefined
+    if (opts.pollMs) document.addEventListener('visibilitychange', onVisible)
+
     return () => {
       alive = false
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version, tick, ...deps])
-
-  // Background polling: silently re-fetch every pollMs so counts and feeds stay
-  // fresh without the caller having to click Refresh.
-  useEffect(() => {
-    if (!opts.pollMs) return
-    const id = window.setInterval(() => {
-      fetcherRef
-        .current()
-        .then((data) => setState((s) => ({ ...s, data, loading: false, error: null })))
-        .catch(() => {}) // swallow transient errors so a blip doesn't blank the UI
-    }, opts.pollMs)
-    return () => window.clearInterval(id)
-  }, [opts.pollMs])
+  }, [version, tick, opts.pollMs, ...deps])
 
   return { ...state, reload: () => setTick((t) => t + 1) }
 }

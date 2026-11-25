@@ -7,7 +7,7 @@ import { fmtAge, fmtDay, fmtMoney } from '@/lib/format'
 import { branchScope } from '@/lib/scope'
 import { api } from '@/services/api'
 import { useAuth } from '@/store/auth'
-import { useApi } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi } from '@/store/data'
 import type { CashRequest } from '@/types'
 
 type Tab = 'all' | 'pending' | 'approved' | 'assign' | 'reassign' | 'in_transit'
@@ -47,7 +47,7 @@ export default function Approvals() {
   const { user } = useAuth()
   const isReadOnly = user?.role === 'Super Admin'
   const navigate = useNavigate()
-  const { data: requests, error, reload } = useApi(() => api.requests.list())
+  const { data: requests, error, reload } = useApi(() => api.requests.list(), [], LIVE_STATUS_OPTIONS)
   const { data: branches } = useApi(() => api.branches.list())
   const { data: users } = useApi(() => api.users.list())
   const [params, setParams] = useSearchParams()

@@ -6,15 +6,15 @@ import { DataTable } from '@/components/ui/DataTable'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { fmtDay, fmtIsoLocal, fmtTimeSec, isoDay } from '@/lib/format'
 import { api } from '@/services/api'
-import { useApi } from '@/store/data'
+import { LIVE_STATUS_OPTIONS, useApi } from '@/store/data'
 import type { AuditEvent, AuditLog, User } from '@/types'
 
 type Filter = 'all' | AuditEvent | 'App trip' | 'Login' | 'Logout'
-const APP_TRIP: AuditEvent[] = ['In Transit', 'Completed']
+const APP_TRIP: AuditEvent[] = ['In Transit', 'Completed', 'Pickup arrival', 'Drop-off arrival']
 
 /** AP-09 · Audit Trail & System Logs (read-only). */
 export default function AuditTrail() {
-  const { data: logs, error, reload } = useApi(() => api.audit.list())
+  const { data: logs, error, reload } = useApi(() => api.audit.list(), [], LIVE_STATUS_OPTIONS)
   const { data: users } = useApi(() => api.users.list())
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
