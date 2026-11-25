@@ -1,5 +1,6 @@
-import type { User } from '@/types'
+import type { Trip, User } from '@/types'
 import { ApiError, type Api, type LiveTrip } from './types'
+
 /**
  * Real implementation against the separate Laravel backend
  * (../Cashroute_backend). Enable with VITE_USE_MOCK_API=false and set
@@ -10,7 +11,7 @@ import { ApiError, type Api, type LiveTrip } from './types'
  * expected in Laravel's default 422 format: { message, errors: { field: [..] } }.
  */
 
-const BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost/CashRoute/Cashroute_backend/public/api').replace(/\/+$/, '')
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? '/CASHROUTE/CashRouteBackEnd/public/api').replace(/\/+$/, '')
 /** Backend root (without /api), for Sanctum's CSRF cookie endpoint. */
 const BACKEND_ROOT = BASE.replace(/\/api$/, '')
 
@@ -110,6 +111,9 @@ export const httpApi: Api = {
   trips: {
     list: () => get('/trips'),
     live: () => get<LiveTrip[]>('/trips/live'),
+    detail: (reference) => get<Trip>(`/trips/${encodeURIComponent(reference)}`)
+      .catch((error: ApiError) => error.status === 404 ? null : Promise.reject(error)),
+    proofImageUrl: (reference, image) => `${BASE}/trips/${encodeURIComponent(reference)}/proof-of-delivery/${image}`,
   },
   notifications: {
     list: () => get('/notifications'),
