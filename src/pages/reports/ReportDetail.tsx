@@ -10,14 +10,13 @@ import type { Branch, Team, Trip, User } from '@/types'
 /** AP-10 · Request Detail (history): event timeline, handover records, proof of delivery. */
 export default function ReportDetail() {
   const { id = '' } = useParams()
-  const { data: trips } = useApi(() => api.trips.list())
+  const { data: trip, error, reload } = useApi(() => api.trips.detail(id), [id])
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
   const { data: users } = useApi(() => api.users.list())
 
-  if (!trips || !branches || !teams || !users) return <LoadingBlock />
-
-  const trip = trips.find((t) => t.id.toLowerCase() === id.toLowerCase())
+  if (error) return <Card title="Trip details could not be loaded"><Button onClick={reload}>Try again</Button></Card>
+  if (trip === undefined || !branches || !teams || !users) return <LoadingBlock />
   if (!trip)
     return (
       <Card className="text-center">
@@ -30,6 +29,7 @@ export default function ReportDetail() {
     )
 
   const h = buildHistory(trip, branches, teams, users)
+  const proof = trip.proof_of_delivery
 
   return (
     <>
@@ -83,17 +83,36 @@ export default function ReportDetail() {
             />
           </Card>
           <Card title="Proof of delivery">
-            <div className="grid grid-cols-2 gap-3">
-              <figure className="grid aspect-[4/3] place-items-center rounded-[20px] bg-gradient-to-br from-ink-6 to-lime-28 text-[11px] text-ink-60">
-                Delivery photo
-              </figure>
-              <figure className="grid aspect-[4/3] place-items-center rounded-[20px] bg-ink-6 text-[11px] text-ink-60">Signature</figure>
-            </div>
-            <p className="mt-3 text-[11px] text-ink-38">Captured in the CashRoute mobile app at handover.</p>
+            {proof ? (
+              <>
+                <KeyValue rows={[
+                  ['Confirmed amount', `${trip.currency} ${Number(proof.confirmed_amount).toLocaleString()}`],
+                  ['Receiver', proof.receiver_name || '—'],
+                  ['Submitted', new Date(proof.submitted_at).toLocaleString()],
+                ]} />
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {proof.photo_ids.map((photo, index) => (
+                    <ProofImage key={photo} reference={trip.id} image={photo} label={`Delivery photo ${index + 1}`} />
+                  ))}
+                  {proof.has_signature && <ProofImage reference={trip.id} image="signature" label="Receiver signature" />}
+                </div>
+              </>
+            ) : <p className="text-[12px] text-ink-60">No proof of delivery has been recorded.</p>}
           </Card>
         </div>
       </div>
     </>
+  )
+}
+
+function ProofImage({ reference, image, label }: { reference: string; image: number | 'signature'; label: string }) {
+  return (
+    <img
+      className="w-full rounded-[20px] bg-ink-6 object-contain"
+      src={api.trips.proofImageUrl(reference, image)}
+      crossOrigin="use-credentials"
+      alt={label}
+    />
   )
 }
 

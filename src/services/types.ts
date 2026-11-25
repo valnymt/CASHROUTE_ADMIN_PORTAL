@@ -117,6 +117,8 @@ export interface Api {
   trips: {
     list(): Promise<Trip[]>
     live(): Promise<LiveTrip[]>
+    detail(reference: string): Promise<Trip | null>
+    proofImageUrl(reference: string, image: number | 'signature'): string
   }
   notifications: {
     list(): Promise<Notification[]>

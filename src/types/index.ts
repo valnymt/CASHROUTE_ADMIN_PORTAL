@@ -115,7 +115,16 @@ export interface AuditLog {
   gps: string | null
 }
 
+export interface DeliveryProof {
+  confirmed_amount: string
+  receiver_name: string | null
+  submitted_at: string
+  photo_ids: number[]
+  has_signature: boolean
+}
+
 export interface Trip {
+  proof_of_delivery?: DeliveryProof | null
   id: string // request id
   date: string // YYYY-MM-DD
   branchId: string
