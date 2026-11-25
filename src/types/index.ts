@@ -124,6 +124,14 @@ export interface DeliveryProof {
 }
 
 export interface Trip {
+  timeline?: { label: string; at: string }[]
+  arrivedPickupAt?: string | null
+  arrivedDropoffAt?: string | null
+  pickupVerifiedAt?: string | null
+  dropoffVerifiedAt?: string | null
+  completedAt?: string | null
+  pickup?: { name: string } | null
+  dropoff?: { name: string } | null
   proof_of_delivery?: DeliveryProof | null
   id: string // request id
   date: string // YYYY-MM-DD

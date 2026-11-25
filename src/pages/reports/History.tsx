@@ -16,7 +16,7 @@ type Result = 'all' | 'on' | 'late'
 export default function History() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { data: trips, error, reload } = useApi(() => api.trips.list())
+  const { data: trips, error, reload } = useApi(() => api.trips.list(), [], { pollMs: 10_000 })
   const { data: branches } = useApi(() => api.branches.list())
   const { data: teams } = useApi(() => api.teams.list())
   // Branch Makers / Checkers see only their own branch's trips.

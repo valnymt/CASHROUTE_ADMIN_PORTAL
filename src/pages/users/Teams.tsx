@@ -16,7 +16,7 @@ export default function Teams() {
   const { user } = useAuth()
   const isReadOnly = user?.role === 'Maker' || user?.role === 'Checker'
 
-  const { data: teams, error, reload } = useApi(() => api.teams.list())
+  const { data: teams, error, reload } = useApi(() => api.teams.list(), [], { pollMs: 10_000 })
   const { data: users } = useApi(() => api.users.list())
   const { data: branches } = useApi(() => api.branches.list())
   const invalidate = useInvalidate()
