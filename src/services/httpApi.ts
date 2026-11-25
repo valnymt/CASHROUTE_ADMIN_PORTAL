@@ -112,6 +112,7 @@ export const httpApi: Api = {
   trips: {
     list: () => get('/trips'),
     live: () => get<LiveTrip[]>('/trips/live'),
+    track: (reference) => get<[number, number][]>(`/trips/${encodeURIComponent(reference)}/track`),
     detail: (reference) => get<Trip>(`/trips/${encodeURIComponent(reference)}`)
       .catch((error: ApiError) => error.status === 404 ? null : Promise.reject(error)),
     proofImageUrl: (reference, image) => `${BASE}/trips/${encodeURIComponent(reference)}/proof-of-delivery/${image}`,

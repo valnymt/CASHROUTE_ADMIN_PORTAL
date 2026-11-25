@@ -40,6 +40,8 @@ export interface LiveTripLocation {
   latitude: number | string | null
   longitude: number | string | null
   handoverRadius: number | null
+  contactName?: string | null
+  contactPhone?: string | null
 }
 
 export interface LiveTrip {
@@ -118,6 +120,7 @@ export interface Api {
   trips: {
     list(): Promise<Trip[]>
     live(): Promise<LiveTrip[]>
+    track(reference: string): Promise<[number, number][]>
     detail(reference: string): Promise<Trip | null>
     proofImageUrl(reference: string, image: number | 'signature'): string
   }

@@ -1,22 +1,49 @@
 import { useEffect, useRef } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import type { LiveTrip } from '@/services/types'
+import type { LiveTrip, LiveTripLocation } from '@/services/types'
 import { setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
 setWorkerUrl(workerUrl);
+
+// Keep the three colors in sync with the Android TripMapScreen.
+const MAP_COLORS = { route: '#2563eb', pickup: '#15803d', dropoff: '#dc2626' }
+
+function stopPopup(label: string, location: LiveTripLocation) {
+    const content = document.createElement('div')
+    const title = document.createElement('strong')
+    title.className = 'block pr-3 text-[13px] text-plum'
+    title.textContent = label + ' · ' + (location.name ?? 'Handover stop')
+    content.append(title)
+    for (const value of [location.address, location.contactName]) {
+        if (!value) continue
+        const row = document.createElement('p')
+        row.className = 'mt-1 text-[12px] text-ink-60'
+        row.textContent = value
+        content.append(row)
+    }
+    const phone = location.contactPhone?.replace(/[^+\d]/g, '')
+    if (phone && /^\+?\d+$/.test(phone)) {
+        const call = document.createElement('a')
+        call.href = 'tel:' + phone
+        call.className = 'mt-2 inline-block text-[12px] font-semibold text-violet underline'
+        call.textContent = 'Call ' + location.contactPhone
+        content.append(call)
+    }
+    return new maplibregl.Popup({ offset: 25 }).setDOMContent(content)
+}
 type LiveMapProps = {
     trips?: LiveTrip[]
     selectedTrip?: LiveTrip | null
+    traveledPath: [number, number][]
 }
 
-export default function LiveMap({ trips = [], selectedTrip = null, }: LiveMapProps) {
+export default function LiveMap({ trips = [], selectedTrip = null, traveledPath }: LiveMapProps) {
     const mapContainer = useRef<HTMLDivElement | null>(null)
     const mapRef = useRef<maplibregl.Map | null>(null)
     const markersRef = useRef<maplibregl.Marker[]>([])
     const vehicleMarkersRef = useRef(new Map<string, maplibregl.Marker>())
-    const animationFramesRef = useRef(new Map<string, number>())
 
     // Create the map once.
     useEffect(() => {
@@ -50,8 +77,6 @@ export default function LiveMap({ trips = [], selectedTrip = null, }: LiveMapPro
         map.addControl(new maplibregl.NavigationControl(), 'top-right')
 
         return () => {
-            animationFramesRef.current.forEach((frame) => cancelAnimationFrame(frame))
-            animationFramesRef.current.clear()
 
             vehicleMarkersRef.current.forEach((marker) => marker.remove())
             vehicleMarkersRef.current.clear()
@@ -61,7 +86,7 @@ export default function LiveMap({ trips = [], selectedTrip = null, }: LiveMapPro
         }
     }, [])
 
-    // Keep vehicle markers mounted and smoothly animate them to new GPS positions.
+    // Place vehicle markers at the latest coordinates sent by the device.
     useEffect(() => {
         const map = mapRef.current
         if (!map) return
@@ -81,10 +106,6 @@ export default function LiveMap({ trips = [], selectedTrip = null, }: LiveMapPro
             if (!activeIds.has(id)) {
                 marker.remove()
                 vehicleMarkersRef.current.delete(id)
-
-                const frame = animationFramesRef.current.get(id)
-                if (frame !== undefined) cancelAnimationFrame(frame)
-                animationFramesRef.current.delete(id)
             }
         }
 
@@ -110,37 +131,8 @@ export default function LiveMap({ trips = [], selectedTrip = null, }: LiveMapPro
                 return
             }
 
-            const frame = animationFramesRef.current.get(trip.id)
-            if (frame !== undefined) cancelAnimationFrame(frame)
-
-            const start = marker.getLngLat()
-            const startTime = performance.now()
-            const duration = 4500 // animate across most of the 5-second polling interval
-
-            const animate = (now: number) => {
-                const t = Math.min((now - startTime) / duration, 1)
-
-                marker!.setLngLat([
-                    start.lng + (target[0] - start.lng) * t,
-                    start.lat + (target[1] - start.lat) * t,
-                ])
-
-                if (t < 1) {
-                    animationFramesRef.current.set(
-                        trip.id,
-                        requestAnimationFrame(animate),
-                    )
-                } else {
-                    animationFramesRef.current.delete(trip.id)
-                }
-            }
-
-            animationFramesRef.current.set(
-                trip.id,
-                requestAnimationFrame(animate),
-            )
+            marker.setLngLat(target)
         })
-
         // Do not call fitBounds() or flyTo() here.
     }, [trips])
     const pickupLat = selectedTrip?.pickup?.latitude
@@ -180,14 +172,14 @@ export default function LiveMap({ trips = [], selectedTrip = null, }: LiveMapPro
             return
         }
 
-        const pickupMarker = new maplibregl.Marker({ color: '#16a34a' })
+        const pickupMarker = new maplibregl.Marker({ color: MAP_COLORS.pickup })
             .setLngLat([pickupLng, pickupLat])
-            .setPopup(new maplibregl.Popup({ offset: 25 }).setText('Pickup'))
+            .setPopup(stopPopup('Pickup', pickup))
             .addTo(map)
 
-        const dropoffMarker = new maplibregl.Marker({ color: '#dc2626' })
+        const dropoffMarker = new maplibregl.Marker({ color: MAP_COLORS.dropoff })
             .setLngLat([dropoffLng, dropoffLat])
-            .setPopup(new maplibregl.Popup({ offset: 25 }).setText('Drop-off'))
+            .setPopup(stopPopup('Drop-off', dropoff))
             .addTo(map)
 
         markersRef.current = [pickupMarker, dropoffMarker]
@@ -198,133 +190,97 @@ export default function LiveMap({ trips = [], selectedTrip = null, }: LiveMapPro
             markersRef.current = []
         }
     }, [selectedTripId, pickupLat, pickupLng, dropoffLat, dropoffLng])
-    // Draw a road-following route for the selected trip.
+    const originLng = selectedTrip?.currentLongitude ?? pickupLng
+    const originLat = selectedTrip?.currentLatitude ?? pickupLat
+    const routeKey = selectedTripId ? [originLng, originLat, dropoffLng, dropoffLat].join(',') : ''
+
+    // GPS samples stay independent of whichever road route the router recommends.
     useEffect(() => {
         const map = mapRef.current
         if (!map) return
+        const draw = () => {
+            const source = ensureLine(map, 'traveled-gps', '#7c3aed', false)
+            source.setData(lineData(traveledPath))
+        }
+        if (map.isStyleLoaded()) draw()
+        else map.once('load', draw)
+        return () => { map.off('load', draw) }
+    }, [traveledPath])
 
-        let cancelled = false
-        let routeRequest: AbortController | null = null
+    useEffect(() => {
+        const map = mapRef.current
+        if (!map || !selectedTripId || pickupLng == null || pickupLat == null || dropoffLng == null || dropoffLat == null) return
+        const points = [pickupLng, pickupLat, dropoffLng, dropoffLat].map(Number)
+        if (!points.every(Number.isFinite)) return
+        map.fitBounds([[points[0], points[1]], [points[2], points[3]]], { padding: 80, maxZoom: 14 })
+    }, [selectedTripId, pickupLng, pickupLat, dropoffLng, dropoffLat])
 
-        const drawRoute = async () => {
-            const pickup = selectedTrip?.pickup
-            const dropoff = selectedTrip?.dropoff
-
-            const hasCoordinates =
-                pickup?.latitude != null &&
-                pickup?.longitude != null &&
-                dropoff?.latitude != null &&
-                dropoff?.longitude != null &&
-                [pickupLat, pickupLng, dropoffLat, dropoffLng].every(Number.isFinite)
-
-            // const source = map.getSource('selected-trip-route') as
-            //     | maplibregl.GeoJSONSource
-            //     | undefined
-
-            // Clear the previous trip's route before drawing another.
-            // source?.setData({
-            //     type: 'FeatureCollection',
-            //     features: [],
-            // })
-
-            if (!hasCoordinates) return
-
-            routeRequest = new AbortController()
-
+    // Recompute the suggested remainder when a new GPS position comes in.
+    useEffect(() => {
+        const map = mapRef.current
+        if (!map) return
+        const controller = new AbortController()
+        let timeout: ReturnType<typeof setTimeout> | undefined
+        const draw = async () => {
+            const source = ensureLine(map, 'suggested-route', MAP_COLORS.route, true)
+            source.setData(lineData([]))
+            const endpoints = routeKey.split(',')
+            if (endpoints.length !== 4 || endpoints.some(value => !value || !Number.isFinite(Number(value)))) return
+            const [lng, lat, destinationLng, destinationLat] = endpoints
+            const url = 'https://router.project-osrm.org/route/v1/driving/' +
+                [lng, lat].join(',') + ';' + [destinationLng, destinationLat].join(',') + '?overview=full&geometries=geojson'
+            timeout = setTimeout(() => controller.abort(), 8_000)
             try {
-                const url =
-                    `https://router.project-osrm.org/route/v1/driving/` +
-                    `${pickupLng},${pickupLat};${dropoffLng},${dropoffLat}` +
-                    `?overview=full&geometries=geojson`
-
-                const response = await fetch(url, {
-                    signal: routeRequest.signal,
-                })
-
-                if (!response.ok) {
-                    throw new Error(`Routing request failed: ${response.status}`)
+                const response = await fetch(url, { signal: controller.signal })
+                if (!response.ok) return
+                const result = await response.json()
+                const coordinates = result.routes?.[0]?.geometry?.coordinates
+                if (!controller.signal.aborted && result.code === 'Ok' && Array.isArray(coordinates)) {
+                    source.setData(lineData(coordinates))
                 }
-
-                const data = await response.json()
-                const coordinates = data.routes?.[0]?.geometry?.coordinates
-
-                if (cancelled || !coordinates) return
-
-                const geojson: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
-                    type: 'FeatureCollection',
-                    features: [
-                        {
-                            type: 'Feature',
-                            properties: {},
-                            geometry: {
-                                type: 'LineString',
-                                coordinates,
-                            },
-                        },
-                    ],
-                }
-
-                const routeSource = map.getSource('selected-trip-route') as
-                    | maplibregl.GeoJSONSource
-                    | undefined
-
-                routeSource?.setData(geojson)
-
-                const bounds = coordinates.reduce(
-                    (bounds: maplibregl.LngLatBounds, coordinate: [number, number]) =>
-                        bounds.extend(coordinate),
-                    new maplibregl.LngLatBounds(coordinates[0], coordinates[0]),
-                )
-
-                map.fitBounds(bounds, { padding: 80, maxZoom: 14 })
-            } catch (error) {
-                if (!cancelled && (error as Error).name !== 'AbortError') {
-                    console.error('Could not load selected trip route:', error)
-                }
+            } catch {
+                // The recorded GPS trail is still shown when the router is unavailable.
+            } finally {
+                clearTimeout(timeout)
             }
         }
-
-        const handleMapLoad = () => {
-            if (!map.getSource('selected-trip-route')) {
-                map.addSource('selected-trip-route', {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: [],
-                    },
-                })
-
-                map.addLayer({
-                    id: 'selected-trip-route-line',
-                    type: 'line',
-                    source: 'selected-trip-route',
-                    paint: {
-                        'line-color': '#2563eb',
-                        'line-width': 5,
-                        'line-opacity': 0.85,
-                    },
-                })
-            }
-
-            void drawRoute()
-        }
-
-        if (map.isStyleLoaded()) {
-            handleMapLoad()
-        } else {
-            map.once('load', handleMapLoad)
-        }
-
+        if (map.isStyleLoaded()) void draw()
+        else map.once('load', draw)
         return () => {
-            cancelled = true
-            routeRequest?.abort()
-            map.off('load', handleMapLoad)
+            controller.abort()
+            clearTimeout(timeout)
+            map.off('load', draw)
         }
-    }, [selectedTripId, pickupLat, pickupLng, dropoffLat, dropoffLng])
+    }, [routeKey])
+
     return (
         <div
             ref={mapContainer}
             style={{ width: '100%', height: '100%', minHeight: 600 }}
         />
     )
+}
+function lineData(coordinates: [number, number][]): GeoJSON.FeatureCollection<GeoJSON.LineString> {
+    return {
+        type: 'FeatureCollection',
+        features: coordinates.length < 2 ? [] : [{
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates },
+        }],
+    }
+}
+
+function ensureLine(map: maplibregl.Map, id: string, color: string, dashed: boolean) {
+    const source = map.getSource<maplibregl.GeoJSONSource>(id)
+    if (source) return source
+    map.addSource(id, { type: 'geojson', data: lineData([]) })
+    map.addLayer({
+        id,
+        type: 'line',
+        source: id,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': color, 'line-width': dashed ? 4 : 5, ...(dashed ? { 'line-dasharray': [2, 2] } : {}) },
+    }, dashed && map.getLayer('traveled-gps') ? 'traveled-gps' : undefined)
+    return map.getSource<maplibregl.GeoJSONSource>(id)!
 }

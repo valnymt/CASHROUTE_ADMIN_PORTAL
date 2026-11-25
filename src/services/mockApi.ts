@@ -472,6 +472,7 @@ export const mockApi: Api = {
   trips: {
     list: () => respond(() => db.trips),
     live: () => respond(() => []),
+    track: () => respond(() => []),
     detail: (reference) => respond(() => db.trips.find((trip) => trip.id.toLowerCase() === reference.toLowerCase()) ?? null),
     proofImageUrl: () => '',
   },
